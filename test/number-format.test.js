@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { roundToConfidenceInterval, samplingError } from '../utils.js';
+import { roundToConfidenceInterval, samplingError } from '../stats.js';
+
 
 describe('samplingError', () => {
   it('computes the sampling error', () => {

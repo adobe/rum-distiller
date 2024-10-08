@@ -1,5 +1,7 @@
 /* a minimalistic stats library */
 
+import { toHumanReadable } from './utils.js';
+
 /**
  * @typedef Line
  * @type {Object}
@@ -163,5 +165,51 @@ export function tTest(left, right) {
     .sqrt(pooledVariance * (1 / left.length + 1 / right.length));
   const p = 1 - (0.5 + 0.5 * erf(tValue / Math.sqrt(2)));
   return p;
+}
+export function roundToConfidenceInterval(
+  total,
+  samples = total,
+  maxPrecision = Infinity
+) {
+  const max = total + samplingError(total, samples);
+  const min = total - samplingError(total, samples);
+  // determine the number of significant digits that max and min have in common
+  // e.g. 3.14 and 3.16 have 2 significant digits in common
+  const maxStr = max.toPrecision(`${max}`.length);
+  const minStr = min.toPrecision(`${min}`.length);
+  const common = Math.min(maxStr.split('').reduce((acc, digit, i) => {
+    if (digit === minStr[i]) {
+      return acc + 1;
+    }
+    return acc;
+  }, 0), Number.isNaN(maxPrecision) ? Infinity : maxPrecision);
+  const precision = Math.max(
+    Math.min(2, Number.isNaN(maxPrecision) ? Infinity : maxPrecision),
+    common
+  );
+
+  const rounded = toHumanReadable(total, precision);
+  return rounded;
+}
+/**
+ * Determines the sampling error based on a binomial distribution.
+ * Each sample is a Bernoulli trial, where the probability of success is the
+ * proportion of the total population that has the attribute of interest.
+ * The sampling error is calculated as the standard error of the proportion.
+ * @param {number} total the expectation value of the total population
+ * @param {number} samples the number of successful trials (i.e. samples)
+ */
+
+export function samplingError(total, samples) {
+  if (samples === 0) {
+    return 0;
+  }
+  const weight = total / samples;
+
+  const variance = weight * weight * samples;
+  const standardError = Math.sqrt(variance);
+  const marginOfError = 1.96 * standardError;
+  // round up to the nearest integer
+  return Math.round(marginOfError);
 }
 

@@ -1,16 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  escapeHTML, computeConversionRate, isKnownFacet,
+  computeConversionRate, isKnownFacet,
 } from '../utils.js';
-
-describe('escapeHTML', () => {
-  it('escapes HTML entities', () => {
-    assert.strictEqual(escapeHTML('<script>alert("xss")</script>'), '&#60;script&#62;alert(&#34;xss&#34;)&#60;/script&#62;');
-    assert.strictEqual(escapeHTML("<script>alert('xss')</script>"), '&#60;script&#62;alert(&#39;xss&#39;)&#60;/script&#62;');
-    assert.strictEqual(escapeHTML('<div>hello</div>'), '&#60;div&#62;hello&#60;/div&#62;');
-  });
-});
 
 describe('computeConversionRate', () => {
   it('its 10% for 1 conversion and 10 visits', () => {

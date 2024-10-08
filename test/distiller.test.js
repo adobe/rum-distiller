@@ -2,7 +2,9 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { readFileSync } from 'node:fs';
-import { DataChunks, addCalculatedProps, zTestTwoProportions } from '../cruncher.js';
+import { DataChunks } from '../distiller.js';
+import { addCalculatedProps } from '../utils.js';
+import { zTestTwoProportions } from '../stats.js';
 
 describe('cruncher.js helper functions', () => {
   it('addCalculatedProps()', () => {
