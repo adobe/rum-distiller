@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/adobe/rum-distiller/compare/v1.0.0...v1.1.0) (2024-10-08)
+
+
+### Features
+
+* **index:** allow single entry point in main.js ([3d2df08](https://github.com/adobe/rum-distiller/commit/3d2df08d0c04e17742aa7eafafcb55ac2b6c440a))
+
 # 1.0.0 (2024-10-08)
 
 
