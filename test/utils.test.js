@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  truncate, escapeHTML, computeConversionRate, isKnownFacet,
+  escapeHTML, computeConversionRate, isKnownFacet,
 } from '../utils.js';
 
 describe('escapeHTML', () => {
