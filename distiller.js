@@ -1,4 +1,15 @@
 /*
+ * Copyright 2024 Adobe. All rights reserved.
+ * This file is licensed to you under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License. You may obtain a copy
+ * of the License at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under
+ * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+ * OF ANY KIND, either express or implied. See the License for the specific language
+ * governing permissions and limitations under the License.
+ */
+/*
  * This module is another service worker, which will handle the number crunching, i.e.
  * filtering, aggregating, and summarizing the data.
  */
@@ -638,8 +649,10 @@ export class DataChunks {
     if (Object.keys(this.seriesIn).length) return this.seriesIn;
     this.seriesIn = Object.entries(this.groupedIn)
       .reduce((accOuter, [groupName, bundles]) => {
+        // eslint-disable-next-line no-param-reassign
         accOuter[groupName] = Object.entries(this.series)
           .reduce((accInner, [seriesName, valueFn]) => {
+            // eslint-disable-next-line no-param-reassign
             accInner[seriesName] = bundles.reduce(
               aggregateFn(valueFn),
               // we reference the totals object here, so that we can
@@ -649,6 +662,7 @@ export class DataChunks {
             return accInner;
           }, {});
         // repeat, for interpolations
+        // eslint-disable-next-line no-param-reassign
         accOuter[groupName] = Object.entries(this.interpolations)
           .reduce(
             (accInner, [seriesName, { sourceSeries, interpolationFn }]) => {
@@ -657,6 +671,7 @@ export class DataChunks {
                   acc[sourceSeriesName] = accOuter[groupName][sourceSeriesName];
                   return acc;
                 }, {});
+              // eslint-disable-next-line no-param-reassign
               accInner[seriesName] = new InterpolatedAggregate(interpolationFn, sourceAggregates);
               return accInner;
             },
@@ -722,7 +737,9 @@ export class DataChunks {
       // so that we can calculate metrics
       // later on
       facet.entries.push(bundle);
+      // eslint-disable-next-line no-param-reassign
       facet.count += 1;
+      // eslint-disable-next-line no-param-reassign
       facet.weight += bundle.weight;
       return facet;
     };
@@ -753,6 +770,8 @@ export class DataChunks {
             skipped,
           )
           .reduce(groupFn(facetValueFn), {});
+
+        // eslint-disable-next-line no-param-reassign
         accOuter[facetName] = Object.entries(groupedByFacetIn)
           .reduce((accInner, [facetValue, bundles]) => {
             accInner.push(bundles

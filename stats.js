@@ -1,3 +1,14 @@
+/*
+ * Copyright 2024 Adobe. All rights reserved.
+ * This file is licensed to you under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License. You may obtain a copy
+ * of the License at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under
+ * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+ * OF ANY KIND, either express or implied. See the License for the specific language
+ * governing permissions and limitations under the License.
+ */
 /* a minimalistic stats library */
 
 import { toHumanReadable } from './utils.js';
@@ -40,7 +51,6 @@ export function linearRegression(data) {
 
   return { slope, intercept };
 }
-
 
 function standardNormalCDF(x) {
   // Approximation of the standard normal CDF using the Hastings algorithm
@@ -149,48 +159,7 @@ function calcMeanVariance(data) {
 
   return { mean, variance };
 }
-/**
- * Performs a significance test on the data. The test assumes
- * that the data is normally distributed and will calculate
- * the p-value for the difference between the two data sets.
- * @param {number[]} left the first data set
- * @param {number[]} right the second data set
- * @returns {number} the p-value, a value between 0 and 1
- */
-export function tTest(left, right) {
-  const { mean: meanLeft, variance: varianceLeft } = calcMeanVariance(left);
-  const { mean: meanRight, variance: varianceRight } = calcMeanVariance(right);
-  const pooledVariance = (varianceLeft + varianceRight) / 2;
-  const tValue = (meanLeft - meanRight) / Math
-    .sqrt(pooledVariance * (1 / left.length + 1 / right.length));
-  const p = 1 - (0.5 + 0.5 * erf(tValue / Math.sqrt(2)));
-  return p;
-}
-export function roundToConfidenceInterval(
-  total,
-  samples = total,
-  maxPrecision = Infinity
-) {
-  const max = total + samplingError(total, samples);
-  const min = total - samplingError(total, samples);
-  // determine the number of significant digits that max and min have in common
-  // e.g. 3.14 and 3.16 have 2 significant digits in common
-  const maxStr = max.toPrecision(`${max}`.length);
-  const minStr = min.toPrecision(`${min}`.length);
-  const common = Math.min(maxStr.split('').reduce((acc, digit, i) => {
-    if (digit === minStr[i]) {
-      return acc + 1;
-    }
-    return acc;
-  }, 0), Number.isNaN(maxPrecision) ? Infinity : maxPrecision);
-  const precision = Math.max(
-    Math.min(2, Number.isNaN(maxPrecision) ? Infinity : maxPrecision),
-    common
-  );
 
-  const rounded = toHumanReadable(total, precision);
-  return rounded;
-}
 /**
  * Determines the sampling error based on a binomial distribution.
  * Each sample is a Bernoulli trial, where the probability of success is the
@@ -213,3 +182,45 @@ export function samplingError(total, samples) {
   return Math.round(marginOfError);
 }
 
+/**
+ * Performs a significance test on the data. The test assumes
+ * that the data is normally distributed and will calculate
+ * the p-value for the difference between the two data sets.
+ * @param {number[]} left the first data set
+ * @param {number[]} right the second data set
+ * @returns {number} the p-value, a value between 0 and 1
+ */
+export function tTest(left, right) {
+  const { mean: meanLeft, variance: varianceLeft } = calcMeanVariance(left);
+  const { mean: meanRight, variance: varianceRight } = calcMeanVariance(right);
+  const pooledVariance = (varianceLeft + varianceRight) / 2;
+  const tValue = (meanLeft - meanRight) / Math
+    .sqrt(pooledVariance * (1 / left.length + 1 / right.length));
+  const p = 1 - (0.5 + 0.5 * erf(tValue / Math.sqrt(2)));
+  return p;
+}
+export function roundToConfidenceInterval(
+  total,
+  samples = total,
+  maxPrecision = Infinity,
+) {
+  const max = total + samplingError(total, samples);
+  const min = total - samplingError(total, samples);
+  // determine the number of significant digits that max and min have in common
+  // e.g. 3.14 and 3.16 have 2 significant digits in common
+  const maxStr = max.toPrecision(`${max}`.length);
+  const minStr = min.toPrecision(`${min}`.length);
+  const common = Math.min(maxStr.split('').reduce((acc, digit, i) => {
+    if (digit === minStr[i]) {
+      return acc + 1;
+    }
+    return acc;
+  }, 0), Number.isNaN(maxPrecision) ? Infinity : maxPrecision);
+  const precision = Math.max(
+    Math.min(2, Number.isNaN(maxPrecision) ? Infinity : maxPrecision),
+    common,
+  );
+
+  const rounded = toHumanReadable(total, precision);
+  return rounded;
+}
