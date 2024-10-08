@@ -43,33 +43,6 @@
  * @property {RawBundle[]} rumBundles - the bundles, as retrieved from the server
  */
 
-/**
- * Calculates properties on the bundle, so that bundle-level filtering can be performed
- * @param {RawBundle} bundle the raw input bundle, without calculated properties
- * @returns {Bundle} a bundle with additional properties
- */
-export function addCalculatedProps(bundle) {
-  bundle.events.forEach((e) => {
-    if (e.checkpoint === 'enter') {
-      bundle.visit = true;
-      if (e.source === '') e.source = '(direct)';
-    }
-    if (e.checkpoint === 'cwv-inp') {
-      bundle.cwvINP = e.value;
-    }
-    if (e.checkpoint === 'cwv-lcp') {
-      bundle.cwvLCP = Math.max(e.value || 0, bundle.cwvLCP || 0);
-    }
-    if (e.checkpoint === 'cwv-cls') {
-      bundle.cwvCLS = Math.max(e.value || 0, bundle.cwvCLS || 0);
-    }
-    if (e.checkpoint === 'cwv-ttfb') {
-      bundle.cwvTTFB = e.value;
-    }
-  });
-  return bundle;
-}
-
 function aggregateFn(valueFn) {
   /**
    * @param {Aggregate} acc the current aggregate
