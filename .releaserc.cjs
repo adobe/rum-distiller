@@ -15,12 +15,6 @@ module.exports = {
     }],
     ["@semantic-release/github", {
     }],
-    ["semantic-release-slack-bot", {
-      notifyOnSuccess: true,
-      notifyOnFail: true,
-      markdownReleaseNotes: true,
-      slackChannel: "rum-explorers",
-    }],
   ],
   branches: ['main'],
 };
