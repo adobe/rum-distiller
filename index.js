@@ -14,6 +14,17 @@ import {
   tTest, zTestTwoProportions, samplingError, linearRegression, roundToConfidenceInterval,
 } from './stats.js';
 import {
+  pageViews,
+  visits,
+  bounces,
+  organic,
+  earned,
+  lcp,
+  cls,
+  inp,
+  engagement,
+} from './series.js';
+import {
   isKnownFacet,
   scoreCWV,
   toHumanReadable,
@@ -46,4 +57,16 @@ const stats = {
   samplingError,
 };
 
-export { DataChunks, utils, stats };
+const series = {
+  pageViews,
+  visits,
+  bounces,
+  organic,
+  earned,
+  lcp,
+  cls,
+  inp,
+  engagement,
+};
+
+export { DataChunks, utils, stats, series };
