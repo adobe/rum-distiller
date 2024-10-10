@@ -1,7 +1,19 @@
+/*
+ * Copyright 2024 Adobe. All rights reserved.
+ * This file is licensed to you under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License. You may obtain a copy
+ * of the License at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under
+ * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+ * OF ANY KIND, either express or implied. See the License for the specific language
+ * governing permissions and limitations under the License.
+ */
 import { reclassifyAcquisition } from './utils.js';
 /**
  * @module series
- * @description This module provides a list of standardized series for use in analyzing web experiences.
+ * @description This module provides a list of standardized series for use in analyzing web
+ * experiences.
  * each series can be registered with a name using `DataChunks.addSeries(name, series)`.
  */
 
@@ -9,9 +21,9 @@ import { reclassifyAcquisition } from './utils.js';
  * @typedef {import('./distiller.js').Bundle} Bundle
  */
 
-
 /**
- * A page view is an impression of a page. At this moment, pre-rendering is also considered a page view.
+ * A page view is an impression of a page. At this moment, pre-rendering is also
+ * considered a page view.
  * @param {Bundle} bundle a series of events that belong to the same page view
  * @returns {number} the number of page views
  */
