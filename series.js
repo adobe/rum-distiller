@@ -79,11 +79,17 @@ export const ttfb = (bundle) => bundle.cwvTTFB;
  * @param {Bundle} bundle a series of events that belong to the same page view
  * @returns {number} the number of engaged page views
  */
-export const engagement = (bundle) => (dataChunks.hasConversion(bundle, {
-  checkpoint: ['click'],
-})
-  ? bundle.weight
-  : 0);
+export const engagement = (bundle) => {
+  const clickEngagement = bundle.events.filter((evt) => evt.checkpoint === 'click').length > 0
+    ? bundle.weight
+    : 0;
+  const contentEngagement = bundle.events
+    .filter((evt) => evt.checkpoint === 'viewmedia' || evt.checkpoint === 'viewblock')
+    .length > 3
+    ? bundle.weight
+    : 0;
+  return clickEngagement || contentEngagement;
+};
 
 /**
  * The number of earned visits is the number of visits that are not paid or owned.
