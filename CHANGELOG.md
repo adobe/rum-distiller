@@ -1,3 +1,11 @@
+# [1.2.0](https://github.com/adobe/rum-distiller/compare/v1.1.0...v1.2.0) (2024-10-10)
+
+
+### Features
+
+* **metrics:** define some standard metrics/series that can be used consistently ([bc888a5](https://github.com/adobe/rum-distiller/commit/bc888a581c9033d7f120317cf447f9f1d069e1ce))
+* **series:** redefine engagement based on content engagement and click engagement ([66a5491](https://github.com/adobe/rum-distiller/commit/66a549145f367e306524abc37252d0ea47a02fb7))
+
 # [1.1.0](https://github.com/adobe/rum-distiller/compare/v1.0.0...v1.1.0) (2024-10-08)
 
 
