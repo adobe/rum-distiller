@@ -201,6 +201,11 @@ class Facet {
   }
 }
 
+/**
+ * @class DataChunks
+ * @description This class is used to filter, group, and aggregate data from RUM events.
+ */
+
 export class DataChunks {
   constructor() {
     this.data = [];

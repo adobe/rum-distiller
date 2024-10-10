@@ -18,7 +18,7 @@ import { reclassifyAcquisition } from './utils.js';
  */
 
 /**
- * @typedef {import('./distiller.js').Bundle} Bundle
+ * @import {Bundle} from './distiller.js'
  */
 
 /**
