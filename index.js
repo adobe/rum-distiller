@@ -36,6 +36,7 @@ import {
   reclassifyEnter,
   addCalculatedProps,
 } from './utils.js';
+import { facets, facetFns } from './facets.js';
 
 const utils = {
   isKnownFacet,
@@ -69,4 +70,6 @@ const series = {
   engagement,
 };
 
-export { DataChunks, utils, stats, series };
+export {
+  DataChunks, utils, stats, series, facets, facetFns,
+};
