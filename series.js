@@ -75,7 +75,8 @@ export const inp = (bundle) => bundle.cwvINP;
 export const ttfb = (bundle) => bundle.cwvTTFB;
 
 /**
- * A page view is considered engaged if there has been at least some user interaction.
+ * A page view is considered engaged if there has been at least some user interaction
+ * or significant content has been viewed, i.e. 4 or more viewmedia or viewblock events.
  * @param {Bundle} bundle a series of events that belong to the same page view
  * @returns {number} the number of engaged page views
  */
