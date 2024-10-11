@@ -172,38 +172,6 @@ export function scoreBundle(bundle) {
   return 'poor';
 }
 
-export const INTERPOLATION_THRESHOLD = 10;
-
-export function simpleCWVInterpolationFn(metric, threshold) {
-  return (cwvs) => {
-    const valuedWeights = Object.values(cwvs)
-      .filter((value) => value.weight !== undefined)
-      .map((value) => value.weight)
-      .reduce((acc, value) => acc + value, 0);
-    return cwvs[threshold + metric].weight / valuedWeights;
-  };
-}
-export function cwvInterpolationFn(targetMetric) {
-  return (cwvs) => {
-    const valueCount = cwvs.goodCWV.count + cwvs.niCWV.count + cwvs.poorCWV.count;
-    const valuedWeights = cwvs.goodCWV.weight + cwvs.niCWV.weight + cwvs.poorCWV.weight;
-
-    if (valueCount < INTERPOLATION_THRESHOLD) {
-      // not enough data to interpolate
-      return 0;
-    }
-    // total weight
-    const totalWeight = cwvs.goodCWV.weight
-      + cwvs.niCWV.weight
-      + cwvs.poorCWV.weight
-      + cwvs.noCWV.weight;
-    // share of targetMetric compared to all CWV
-    const share = cwvs[targetMetric].weight / (valuedWeights);
-    // interpolate the share to the total weight
-    return Math.round(share * totalWeight);
-  };
-}
-
 /**
  * Conversion rates are computed as the ratio of conversions to visits. The conversion rate is
  * capped at 100%.
