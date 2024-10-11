@@ -35,9 +35,6 @@ import {
   reclassifyAcquisition,
   reclassifyEnter,
   addCalculatedProps,
-  cwvInterpolationFn,
-  simpleCWVInterpolationFn,
-  INTERPOLATION_THRESHOLD,
 } from './utils.js';
 
 const utils = {
@@ -51,9 +48,6 @@ const utils = {
   reclassifyAcquisition,
   reclassifyEnter,
   addCalculatedProps,
-  cwvInterpolationFn,
-  simpleCWVInterpolationFn,
-  INTERPOLATION_THRESHOLD,
 };
 const stats = {
   zTestTwoProportions,
