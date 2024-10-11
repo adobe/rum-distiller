@@ -1,3 +1,16 @@
+# [1.4.0](https://github.com/adobe/rum-distiller/compare/v1.3.0...v1.4.0) (2024-10-11)
+
+
+### Bug Fixes
+
+* **facets:** better matching of base64 strings ([b4416d3](https://github.com/adobe/rum-distiller/commit/b4416d3cf3a9375cc13e2445c4039254aaa89c3a))
+* **facets:** fix viewmedia checkpoint name ([e4a539c](https://github.com/adobe/rum-distiller/commit/e4a539c0868a5a443dbe8cbf5e72dcd2f7b9a388))
+
+
+### Features
+
+* **facets:** extract common facets as reusable facet definitions ([2a1428b](https://github.com/adobe/rum-distiller/commit/2a1428b85b6e0d4c227222046740cbb099ba2504))
+
 # [1.3.0](https://github.com/adobe/rum-distiller/compare/v1.2.0...v1.3.0) (2024-10-11)
 
 
