@@ -35,6 +35,9 @@ import {
   reclassifyAcquisition,
   reclassifyEnter,
   addCalculatedProps,
+  cwvInterpolationFn,
+  simpleCWVInterpolationFn,
+  INTERPOLATION_THRESHOLD,
 } from './utils.js';
 
 const utils = {
@@ -48,6 +51,9 @@ const utils = {
   reclassifyAcquisition,
   reclassifyEnter,
   addCalculatedProps,
+  cwvInterpolationFn,
+  simpleCWVInterpolationFn,
+  INTERPOLATION_THRESHOLD,
 };
 const stats = {
   zTestTwoProportions,
@@ -69,4 +75,6 @@ const series = {
   engagement,
 };
 
-export { DataChunks, utils, stats, series };
+export {
+  DataChunks, utils, stats, series,
+};
