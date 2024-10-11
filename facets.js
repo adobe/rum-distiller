@@ -47,7 +47,7 @@ export const facets = {
           return '<hex>';
         }
         // base64 encoded data, censor it
-        if (segment.length > 32 && /^[a-zA-Z0-9+/]+$/.test(segment)) {
+        if (segment.length > 32 && /^[a-zA-Z0-9+/]+={0,2}$/.test(segment)) {
           return '<base64>';
         }
         // probable UUID, censor it
