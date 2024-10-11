@@ -80,7 +80,7 @@ export const facets = {
    * Classifies the bundle according to the Core Web Vitals metrics.
    * For each metric in `LCP`, `CLS`, and `INP`, the score is calculated
    * as `good`, `needs improvement`, or `poor`.
-   * The result is a list of the form `[LCPgood, CLSpoor, INPni]`
+   * The result is a list of the form `[goodLCP, niCLS, poorINP]`
    * @param {Bundle} bundle the bundle of sampled rum events
    * @returns {string[]} a list of CWV metrics
    */
