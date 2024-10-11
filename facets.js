@@ -165,7 +165,9 @@ export const facetFns = {
    * Returns a function that creates a facet function for the source of the given
    * checkpoint.
    * @param {string} cp the checkpoint
-   * @returns {function(bundle: Bundle): Set<string>} a facet function
+  * @returns {
+  function(bundle: Bundle): string[]
+} a facet function
    */
   checkpointSource: (cp) => (bundle) => Array.from(
     bundle.events
@@ -181,7 +183,7 @@ export const facetFns = {
    * Returns a function that creates a facet function for the target of the given
    * checkpoint.
    * @param {string} cp the checkpoint
-   * @returns {function(bundle: Bundle): Set<string>} a facet function
+   * @returns {function(bundle: Bundle): string[]} a facet function
    */
   checkpointTarget: (cp) => (bundle) => Array.from(
     bundle.events
