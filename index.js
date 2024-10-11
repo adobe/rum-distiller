@@ -22,6 +22,7 @@ import {
   lcp,
   cls,
   inp,
+  ttfb,
   engagement,
 } from './series.js';
 import {
@@ -67,6 +68,7 @@ const series = {
   lcp,
   cls,
   inp,
+  ttfb,
   engagement,
 };
 
