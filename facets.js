@@ -131,8 +131,15 @@ export const facets = {
         .filter((s) => s))
       .pop() || [],
   ),
+  /**
+   * Extracts the target of the media view event from the bundle. This
+   * is typically the URL of an image or video, and the URL is stripped
+   * of query parameters, hash, user, and password.
+   * @param {Bundle} bundle the bundle of sampled rum events
+   * @returns {string[]} a list of media targets
+   */
   mediaTarget: (bundle) => bundle.events
-    .filter((evt) => evt.checkpoint === 'viewedia')
+    .filter((evt) => evt.checkpoint === 'viewmedia')
     .map((evt) => evt.target)
     .filter((target) => target)
     .map((target) => {
