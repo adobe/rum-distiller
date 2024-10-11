@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/adobe/rum-distiller/compare/v1.2.0...v1.3.0) (2024-10-11)
+
+
+### Features
+
+* export ttfb series ([3aa0a49](https://github.com/adobe/rum-distiller/commit/3aa0a499faef6cc17c78b56d5c6160ec648f5433))
+
 # [1.2.0](https://github.com/adobe/rum-distiller/compare/v1.1.0...v1.2.0) (2024-10-10)
 
 
