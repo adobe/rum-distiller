@@ -12,7 +12,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { facets } from '../facets.js';
+import { facets, facetFns } from '../facets.js';
 import { DataChunks } from '../distiller.js';
 import { pageViews } from '../series.js';
 
@@ -178,5 +178,47 @@ describe('facets:mediaTarget', () => {
 
     assert.equal(d.facets.mediaTarget.length, 320);
     assert.equal(d.facets.mediaTarget[0].value, '/media_1645e7a92e9f8448d45e8b999afa71315cc52690b.png');
+  });
+});
+
+describe('facets:checkpointSource', () => {
+  it('checkpointSource:bare', () => {
+    assert.deepEqual(
+      facetFns.checkpointSource('enter')({
+        events: [{ checkpoint: 'enter', source: 'https://www.example.com' }],
+      }),
+      ['https://www.example.com'],
+    );
+  });
+
+  it('checkpointSource:DataChunks', () => {
+    const d = new DataChunks();
+    d.load(testChunks);
+    d.addSeries('pageViews', pageViews);
+    d.addFacet('checkpointSource', facetFns.checkpointSource('enter'));
+
+    assert.equal(d.facets.checkpointSource.length, 28);
+    assert.equal(d.facets.checkpointSource[0].value, '(direct)');
+  });
+});
+
+describe('facets:checkpointTarget', () => {
+  it('checkpointTarget:bare', () => {
+    assert.deepEqual(
+      facetFns.checkpointTarget('click')({
+        events: [{ checkpoint: 'click', target: 'https://www.example.com' }],
+      }),
+      ['https://www.example.com'],
+    );
+  });
+
+  it('checkpointTarget:DataChunks', () => {
+    const d = new DataChunks();
+    d.load(testChunks);
+    d.addSeries('pageViews', pageViews);
+    d.addFacet('checkpointTarget', facetFns.checkpointTarget('click'));
+
+    assert.equal(d.facets.checkpointTarget.length, 116);
+    assert.equal(d.facets.checkpointTarget[0].value, 'https://www.aem.live/developer/block-collection');
   });
 });
