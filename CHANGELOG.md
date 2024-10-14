@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/adobe/rum-distiller/compare/v1.4.0...v1.4.1) (2024-10-14)
+
+
+### Bug Fixes
+
+* **rum-oversight:** unknown filter should return empty set ([#9](https://github.com/adobe/rum-distiller/issues/9)) ([9554e62](https://github.com/adobe/rum-distiller/commit/9554e6213951b7cf803e115fe2a7c14124352c48))
+
 # [1.4.0](https://github.com/adobe/rum-distiller/compare/v1.3.0...v1.4.0) (2024-10-11)
 
 
