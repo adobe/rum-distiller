@@ -34,7 +34,7 @@ export const pageViews = (bundle) => {
   );
   const isPrerenderThenNavigate = bundle.events.find((evt) =>
     evt.checkpoint === 'navigate'
-    && evt.target === 'prerender');
+    && evt.target === 'prerendered');
   return isBundle && (!isPrerender || isPrerenderThenNavigate) ? bundle.weight : 0;
 };
 

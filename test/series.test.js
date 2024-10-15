@@ -23,7 +23,7 @@ describe('series:pageViews', () => {
     assert.equal(pageViews({ weight: 1, events: [] }), 1);
     assert.equal(pageViews({ weight: 1, events: [{ checkpoint: 'prerender' }] }), 0);
     assert.equal(pageViews({ weight: 1, events: [{ checkpoint: 'navigate', target: 'prerender' }] }), 1);
-    assert.equal(pageViews({ weight: 1, events: [{ checkpoint: 'prerender' }, { checkpoint: 'navigate', target: 'prerender' }] }), 1);
+    assert.equal(pageViews({ weight: 1, events: [{ checkpoint: 'prerender' }, { checkpoint: 'navigate', target: 'prerendered' }] }), 1);
   });
 
   it('pageViews:DataChunks', () => {
