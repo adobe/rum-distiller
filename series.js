@@ -27,7 +27,16 @@ import { reclassifyAcquisition } from './utils.js';
  * @param {Bundle} bundle a series of events that belong to the same page view
  * @returns {number} the number of page views
  */
-export const pageViews = (bundle) => bundle.weight;
+export const pageViews = (bundle) => {
+  const isBundle = true;
+  const isPrerender = bundle.events.find((evt) =>
+    evt.checkpoint === 'prerender'
+  );
+  const isPrerenderThenNavigate = bundle.events.find((evt) =>
+    evt.checkpoint === 'navigate'
+    && evt.target === 'prerendered');
+  return isBundle && (!isPrerender || isPrerenderThenNavigate) ? bundle.weight : 0;
+};
 
 /**
  * A visit is a page view that does not follow an internal link. This means a visit starts
