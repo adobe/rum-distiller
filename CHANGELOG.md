@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/adobe/rum-distiller/compare/v1.4.1...v1.5.0) (2024-10-15)
+
+
+### Features
+
+* **facets:** add `plainURL` facet that does not try to hide potential PII from URL paths ([d600421](https://github.com/adobe/rum-distiller/commit/d600421fb7d640aad2e32e3f52acf60438bedabd)), closes [#11](https://github.com/adobe/rum-distiller/issues/11)
+
 ## [1.4.1](https://github.com/adobe/rum-distiller/compare/v1.4.0...v1.4.1) (2024-10-14)
 
 
