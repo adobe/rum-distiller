@@ -62,6 +62,14 @@ export const facets = {
       }).join('/');
     return u.toString();
   },
+  plainURL: (bundle) => {
+    const u = new URL(bundle.url);
+    u.search = '';
+    u.hash = '';
+    u.username = '';
+    u.password = '';
+    return u.toString();
+  },
   /**
    * Extracts the checkpoints from the bundle. Each checkpoint
    * that occurs at least once in the bundle is returned as a facet
