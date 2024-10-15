@@ -50,6 +50,7 @@ describe('facets:url', () => {
     assert.equal(facets.url({ url: 'https://www.example.com/path/123e4567-e89b-12d3-a456-426614174000' }), `https://www.example.com/path/${encodeURIComponent('<uuid>')}`);
     // long path
     assert.equal(facets.url({ url: 'https://www.example.com/path/loremlipsumdolorsitametconsecteturadipiscingelit-1234567890-abcdefghijklmnopqrstuvwxyz' }), 'https://www.example.com/path/...');
+    assert.equal(facets.url({ url: 'https://blog.adobe.com/en/publish/2024/09/11/bringing-gen-ai-to-video-adobe-firefly-video-model-coming-soon' }), 'https://blog.adobe.com/en/publish/2024/09/11/...');
 
     assert.equal(facets.url({ domain: 'custom.domain' }), 'custom.domain');
   });
@@ -65,6 +66,16 @@ describe('facets:url', () => {
     assert.equal(d.facets.url.length, 92);
 
     assert.equal(d.facets.url[0].value, 'https://www.aem.live/home');
+  });
+});
+
+describe('facets:plainURL', () => {
+  it('plainURL:bare', () => {
+    assert.equal(facets.plainURL({ url: 'https://www.example.com/path/to/page' }), 'https://www.example.com/path/to/page');
+    assert.equal(facets.plainURL({ url: 'https://www.example.com/user/12345' }), 'https://www.example.com/user/12345');
+    assert.equal(facets.plainURL({ url: 'https://www.example.com/hash/a1b2c3d4e5f6' }), 'https://www.example.com/hash/a1b2c3d4e5f6');
+    assert.equal(facets.plainURL({ url: 'https://www.example.com/path/to/page?query=string#fragment' }), 'https://www.example.com/path/to/page');
+    assert.equal(facets.plainURL({ url: 'https://blog.adobe.com/en/publish/2024/09/11/bringing-gen-ai-to-video-adobe-firefly-video-model-coming-soon' }), 'https://blog.adobe.com/en/publish/2024/09/11/bringing-gen-ai-to-video-adobe-firefly-video-model-coming-soon');
   });
 });
 
