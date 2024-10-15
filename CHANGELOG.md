@@ -1,3 +1,15 @@
+# [1.6.0](https://github.com/adobe/rum-distiller/compare/v1.5.0...v1.6.0) (2024-10-15)
+
+
+### Bug Fixes
+
+* **series:** target is actually `prerendered` ([d26c5c1](https://github.com/adobe/rum-distiller/commit/d26c5c11c0ef4d053caf7e57e2bc040a86e36011))
+
+
+### Features
+
+* **series:** redefine page views so that prerenders (that never are turned into navigation events) are no longer counted ([2e54f16](https://github.com/adobe/rum-distiller/commit/2e54f1697715ea52f73821685519eedc64ac50ae))
+
 # [1.5.0](https://github.com/adobe/rum-distiller/compare/v1.4.1...v1.5.0) (2024-10-15)
 
 
