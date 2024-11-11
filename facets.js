@@ -188,6 +188,14 @@ export const facets = {
       return u.toString();
     }),
 };
+
+/**
+ * A facet function takes a bundle and returns an array of facet values.
+ * @typedef {function} FacetFn
+ * @param {Bundle} bundle The bundle to process
+ * @returns {string[]} Array of facet values
+ */
+
 /**
  * A collection of facet factory functions. Each function takes one or more
  * parameters and returns a facet function according to the parameters.
@@ -196,10 +204,8 @@ export const facetFns = {
   /**
    * Returns a function that creates a facet function for the source of the given
    * checkpoint.
-   * @param {string} cp the checkpoint
-  * @returns {
-  function(bundle: Bundle): string[]
-} a facet function
+   * @return {FacetFn} - a facet function
+   * @param {string} cp - the checkpoint
    */
   checkpointSource: (cp) => (bundle) => Array.from(
     bundle.events
@@ -215,7 +221,7 @@ export const facetFns = {
    * Returns a function that creates a facet function for the target of the given
    * checkpoint.
    * @param {string} cp the checkpoint
-   * @returns {function(bundle: Bundle): string[]} a facet function
+   * @returns {FacetFn} a facet function
    */
   checkpointTarget: (cp) => (bundle) => Array.from(
     bundle.events
