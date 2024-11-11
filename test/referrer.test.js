@@ -105,4 +105,4 @@ describe('classifyReferrer', () => {
   it('should return undefined for unclassified referrers', () => {
     assert.equal(classifyReferrer('https://unknown-domain.com'), undefined);
   });
-}); 
+});

@@ -459,4 +459,4 @@ export function classifyReferrer(referrerURL) {
   const result = referrers.find(({ match }) => match.test(referrerURL));
   if (result) return new Referrer(result.type, result.vendor, referrerURL);
   return undefined;
-} 
+}
