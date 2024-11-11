@@ -11,7 +11,7 @@
  */
 import assert from 'assert';
 import { describe, it } from 'node:test';
-import classifyReferrer from '../referrer.js';
+import { classifyReferrer } from '../referrer.js';
 
 describe('classifyReferrer', () => {
   const testCases = [

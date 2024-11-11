@@ -165,6 +165,26 @@ describe('facets:acquisitionSource', () => {
   });
 });
 
+describe('facets:enterSource', () => {
+  it('enterSource:bare', () => {
+    assert.deepEqual(facets.enterSource({ events: [{ checkpoint: 'enter', source: 'https://www.example.com' }] }), ['https://www.example.com']);
+    assert.deepEqual(facets.enterSource({ events: [{ checkpoint: 'enter', source: 'https://www.google.com' }] }), ['https://www.google.com', 'search:google', 'search', '*:google']);
+  });
+
+  it('enterSource:DataChunks', () => {
+    const d = new DataChunks();
+    d.load(testChunks);
+    d.addSeries('pageViews', pageViews);
+    d.addFacet('enterSource', facets.enterSource);
+
+    assert.equal(d.facets.enterSource.length, 46);
+    assert.equal(d.facets.enterSource[2].value, 'search'); // all search engines
+    assert.equal(d.facets.enterSource[3].value, 'search:google'); // google search
+    assert.equal(d.facets.enterSource[4].value, '*:google'); // all google properties
+    assert.equal(d.facets.enterSource[5].value, 'https://www.google.com/'); // that one specific google page
+  });
+});
+
 describe('facets:mediaTarget', () => {
   it('mediaTarget:bare', () => {
     assert.deepEqual(facets.mediaTarget(

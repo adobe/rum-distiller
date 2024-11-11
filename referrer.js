@@ -454,7 +454,7 @@ class Referrer {
   }
 }
 
-export default function classifyReferrer(referrerURL) {
+export function classifyReferrer(referrerURL) {
   if (!referrerURL) return undefined;
   const result = referrers.find(({ match }) => match.test(referrerURL));
   if (result) return new Referrer(result.type, result.vendor, referrerURL);

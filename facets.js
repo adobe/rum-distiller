@@ -10,6 +10,7 @@
  * governing permissions and limitations under the License.
  */
 import { reclassifyConsent, reclassifyAcquisition, scoreCWV } from './utils.js';
+import { classifyReferrer } from './referrer.js';
 /**
   * @import {Bundle} from './distiller.js'
   */
@@ -139,6 +140,29 @@ export const facets = {
         .filter((s) => s))
       .pop() || [],
   ),
+  /**
+   * Classifies the referrer page of the enter event.
+   * @param {Bundle} bundle the bundle of sampled rum events
+   * @returns {string[]} a list of referrer classifications, following the pattern:
+   * - the original source URL
+   * - the type and vendor of the referrer, e.g. `search:google`
+   * - the type of the referrer, e.g. `search`
+   * - the vendor of the referrer, regardless of type, e.g. `*:google`
+   */
+  enterSource: (bundle) => bundle.events
+    .filter((evt) => evt.checkpoint === 'enter')
+    .map((evt) => evt.source)
+    .filter((source) => source)
+    .map((source) => {
+      const referrerClass = classifyReferrer(source);
+      return referrerClass ? [
+        source,
+        `${referrerClass.type}:${referrerClass.vendor}`,
+        referrerClass.type,
+        `*:${referrerClass.vendor}`,
+      ] : source;
+    })
+    .flat(),
   /**
    * Extracts the target of the media view event from the bundle. This
    * is typically the URL of an image or video, and the URL is stripped
