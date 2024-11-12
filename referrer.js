@@ -121,11 +121,6 @@ const referrers = [
   },
   {
     type: 'social',
-    vendor: 'tiktok',
-    match: /https?:\/\/(www\.)?tiktok\.com/,
-  },
-  {
-    type: 'social',
     vendor: 'x',
     match: /https?:\/\/(www\.)?(t\.co\/|x\.com)/,
   },
@@ -175,6 +170,11 @@ const referrers = [
     type: 'video',
     vendor: 'dailymotion',
     match: /https?:\/\/([a-zA-Z0-9_-]+\.)?dailymotion\.com/,
+  },
+  {
+    type: 'video',
+    vendor: 'tiktok',
+    match: /https?:\/\/(www\.)?tiktok\.com/,
   },
   // Ads
   {
