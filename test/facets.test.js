@@ -49,8 +49,8 @@ describe('facets:url', () => {
     // uuid in path
     assert.equal(facets.url({ url: 'https://www.example.com/path/123e4567-e89b-12d3-a456-426614174000' }), `https://www.example.com/path/${encodeURIComponent('<uuid>')}`);
     // long path
-    assert.equal(facets.url({ url: 'https://www.example.com/path/loremlipsumdolorsitametconsecteturadipiscingelit-1234567890-abcdefghijklmnopqrstuvwxyz' }), 'https://www.example.com/path/...');
-    assert.equal(facets.url({ url: 'https://blog.adobe.com/en/publish/2024/09/11/bringing-gen-ai-to-video-adobe-firefly-video-model-coming-soon' }), 'https://blog.adobe.com/en/publish/2024/09/11/...');
+    assert.equal(facets.url({ url: 'https://www.example.com/path/loremlipsumdolorsitametconsecteturadipiscingelit-1234567890-abcdefghijklmnopqrstuvwxyz' }), 'https://www.example.com/path/loremlipsumdolorsitametconsecteturadipiscingelit-1234567890-abcdefghijklmnopqrstuvwxyz');
+    assert.equal(facets.url({ url: 'https://blog.adobe.com/en/publish/2024/09/11/bringing-gen-ai-to-video-adobe-firefly-video-model-coming-soon' }), 'https://blog.adobe.com/en/publish/2024/09/11/bringing-gen-ai-to-video-adobe-firefly-video-model-coming-soon');
 
     assert.equal(facets.url({ domain: 'custom.domain' }), 'custom.domain');
   });
