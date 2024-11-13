@@ -59,6 +59,7 @@ export const facets = {
     return u.toString();
   },
   plainURL: (bundle) => {
+    if (bundle.domain) return bundle.domain;
     const u = new URL(bundle.url);
     u.search = '';
     u.hash = '';
