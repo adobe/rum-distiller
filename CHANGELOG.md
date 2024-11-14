@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/adobe/rum-distiller/compare/v1.6.0...v1.6.1) (2024-11-14)
+
+
+### Bug Fixes
+
+* respect plainURL contract for domains ([#19](https://github.com/adobe/rum-distiller/issues/19)) ([47a265d](https://github.com/adobe/rum-distiller/commit/47a265d27a15828002437b5885e8c34199f40c7d))
+
 # [1.6.0](https://github.com/adobe/rum-distiller/compare/v1.5.0...v1.6.0) (2024-10-15)
 
 
