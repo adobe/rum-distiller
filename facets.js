@@ -54,6 +54,10 @@ export const facets = {
         if (segment.length > 35 && /^[0-9a-f-]+$/.test(segment)) {
           return '<uuid>';
         }
+        // just too long
+        if (segment.length > 60) {
+          return '...';
+        }
         return segment;
       }).join('/');
     return u.toString();
