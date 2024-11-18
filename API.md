@@ -15,6 +15,17 @@ each series can be registered with a name using <code>DataChunks.addSeries(name,
 <dd></dd>
 </dl>
 
+## Constants
+
+<dl>
+<dt><a href="#facets">facets</a></dt>
+<dd></dd>
+<dt><a href="#facetFns">facetFns</a></dt>
+<dd><p>A collection of facet factory functions. Each function takes one or more
+parameters and returns a facet function according to the parameters.</p>
+</dd>
+</dl>
+
 ## Functions
 
 <dl>
@@ -112,6 +123,9 @@ capped at 100%.</p>
 <dt><a href="#Totals">Totals</a> ⇐ <code>Object&lt;string,</code></dt>
 <dd><p>A total is an object that contains {Metric} objects
 for each defined series.</p>
+</dd>
+<dt><a href="#FacetFn">FacetFn</a> ⇒ <code>Array.&lt;string&gt;</code></dt>
+<dd><p>A facet function takes a bundle and returns an array of facet values.</p>
 </dd>
 <dt><a href="#Line">Line</a> : <code>Object</code></dt>
 <dd></dd>
@@ -471,6 +485,184 @@ and each vaule is an array of bundles
 | --- | --- | --- |
 | groupByFn | [<code>groupByFn</code>](#groupByFn) | for each object, determine the group key |
 
+<a name="facets"></a>
+
+## facets
+**Kind**: global constant  
+**Import**: [<code>Bundle</code>](#Bundle) from './distiller.js'  
+
+* [facets](#facets)
+    * [.userAgent(bundle)](#facets.userAgent) ⇒ <code>Array.&lt;string&gt;</code>
+    * [.url(bundle)](#facets.url) ⇒ <code>string</code>
+    * [.checkpoint(bundle)](#facets.checkpoint) ⇒ <code>Array.&lt;string&gt;</code>
+    * [.vitals(bundle)](#facets.vitals) ⇒ <code>Array.&lt;string&gt;</code>
+    * [.lcpTarget(bundle)](#facets.lcpTarget) ⇒ <code>Array.&lt;string&gt;</code>
+    * [.lcpSource(bundle)](#facets.lcpSource) ⇒ <code>Array.&lt;string&gt;</code>
+    * [.acquisitionSource(bundle)](#facets.acquisitionSource) ⇒ <code>Array.&lt;string&gt;</code>
+    * [.enterSource(bundle)](#facets.enterSource) ⇒ <code>Array.&lt;string&gt;</code>
+    * [.mediaTarget(bundle)](#facets.mediaTarget) ⇒ <code>Array.&lt;string&gt;</code>
+
+<a name="facets.userAgent"></a>
+
+### facets.userAgent(bundle) ⇒ <code>Array.&lt;string&gt;</code>
+Extracts each of device type and operating system from
+the simplified user agent string.
+
+**Kind**: static method of [<code>facets</code>](#facets)  
+**Returns**: <code>Array.&lt;string&gt;</code> - a list of device types and operating systems  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| bundle | [<code>Bundle</code>](#Bundle) | the bundle of sampled rum events |
+
+<a name="facets.url"></a>
+
+### facets.url(bundle) ⇒ <code>string</code>
+Extracts the path from the URL and removes potential PII such as
+ids, hashes, and other encoded data.
+
+**Kind**: static method of [<code>facets</code>](#facets)  
+**Returns**: <code>string</code> - the path of the URL  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| bundle | [<code>Bundle</code>](#Bundle) | the bundle of sampled rum events |
+
+<a name="facets.checkpoint"></a>
+
+### facets.checkpoint(bundle) ⇒ <code>Array.&lt;string&gt;</code>
+Extracts the checkpoints from the bundle. Each checkpoint
+that occurs at least once in the bundle is returned as a facet
+value.
+
+**Kind**: static method of [<code>facets</code>](#facets)  
+**Returns**: <code>Array.&lt;string&gt;</code> - a list of checkpoints  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| bundle | [<code>Bundle</code>](#Bundle) | the bundle of sampled rum events |
+
+<a name="facets.vitals"></a>
+
+### facets.vitals(bundle) ⇒ <code>Array.&lt;string&gt;</code>
+Classifies the bundle according to the Core Web Vitals metrics.
+For each metric in `LCP`, `CLS`, and `INP`, the score is calculated
+as `good`, `needs improvement`, or `poor`.
+The result is a list of the form `[goodLCP, niCLS, poorINP]`
+
+**Kind**: static method of [<code>facets</code>](#facets)  
+**Returns**: <code>Array.&lt;string&gt;</code> - a list of CWV metrics  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| bundle | [<code>Bundle</code>](#Bundle) | the bundle of sampled rum events |
+
+<a name="facets.lcpTarget"></a>
+
+### facets.lcpTarget(bundle) ⇒ <code>Array.&lt;string&gt;</code>
+Extracts the target of the Largest Contentful Paint (LCP) event from the bundle.
+
+**Kind**: static method of [<code>facets</code>](#facets)  
+**Returns**: <code>Array.&lt;string&gt;</code> - a list of LCP targets  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| bundle | [<code>Bundle</code>](#Bundle) | the bundle of sampled rum events |
+
+<a name="facets.lcpSource"></a>
+
+### facets.lcpSource(bundle) ⇒ <code>Array.&lt;string&gt;</code>
+Extracts the source of the Largest Contentful Paint (LCP) event from the bundle.
+
+**Kind**: static method of [<code>facets</code>](#facets)  
+**Returns**: <code>Array.&lt;string&gt;</code> - a list of LCP sources  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| bundle | [<code>Bundle</code>](#Bundle) | the bundle of sampled rum events |
+
+<a name="facets.acquisitionSource"></a>
+
+### facets.acquisitionSource(bundle) ⇒ <code>Array.&lt;string&gt;</code>
+Extracts the acquisition source from the bundle. As acquisition sources
+can be strings like `paid:video:youtube`, each of `paid`, `paid:video`,
+and `paid:video:youtube` are returned as separate values.
+
+**Kind**: static method of [<code>facets</code>](#facets)  
+**Returns**: <code>Array.&lt;string&gt;</code> - a list of acquisition sources  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| bundle | [<code>Bundle</code>](#Bundle) | the bundle of sampled rum events |
+
+<a name="facets.enterSource"></a>
+
+### facets.enterSource(bundle) ⇒ <code>Array.&lt;string&gt;</code>
+Classifies the referrer page of the enter event.
+
+**Kind**: static method of [<code>facets</code>](#facets)  
+**Returns**: <code>Array.&lt;string&gt;</code> - a list of referrer classifications, following the pattern:
+- the original source URL
+- the type and vendor of the referrer, e.g. `search:google`
+- the type of the referrer, e.g. `search`
+- the vendor of the referrer, regardless of type, e.g. `*:google`  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| bundle | [<code>Bundle</code>](#Bundle) | the bundle of sampled rum events |
+
+<a name="facets.mediaTarget"></a>
+
+### facets.mediaTarget(bundle) ⇒ <code>Array.&lt;string&gt;</code>
+Extracts the target of the media view event from the bundle. This
+is typically the URL of an image or video, and the URL is stripped
+of query parameters, hash, user, and password.
+
+**Kind**: static method of [<code>facets</code>](#facets)  
+**Returns**: <code>Array.&lt;string&gt;</code> - a list of media targets  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| bundle | [<code>Bundle</code>](#Bundle) | the bundle of sampled rum events |
+
+<a name="facetFns"></a>
+
+## facetFns
+A collection of facet factory functions. Each function takes one or more
+parameters and returns a facet function according to the parameters.
+
+**Kind**: global constant  
+
+* [facetFns](#facetFns)
+    * [.checkpointSource(cp)](#facetFns.checkpointSource) ⇒ [<code>FacetFn</code>](#FacetFn)
+    * [.checkpointTarget(cp)](#facetFns.checkpointTarget) ⇒ [<code>FacetFn</code>](#FacetFn)
+
+<a name="facetFns.checkpointSource"></a>
+
+### facetFns.checkpointSource(cp) ⇒ [<code>FacetFn</code>](#FacetFn)
+Returns a function that creates a facet function for the source of the given
+checkpoint.
+
+**Kind**: static method of [<code>facetFns</code>](#facetFns)  
+**Returns**: [<code>FacetFn</code>](#FacetFn) - - a facet function  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| cp | <code>string</code> | the checkpoint |
+
+<a name="facetFns.checkpointTarget"></a>
+
+### facetFns.checkpointTarget(cp) ⇒ [<code>FacetFn</code>](#FacetFn)
+Returns a function that creates a facet function for the target of the given
+checkpoint.
+
+**Kind**: static method of [<code>facetFns</code>](#facetFns)  
+**Returns**: [<code>FacetFn</code>](#FacetFn) - a facet function  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| cp | <code>string</code> | the checkpoint |
+
 <a name="seriesValueFn"></a>
 
 ## seriesValueFn(bundle) ⇒ <code>number</code> \| <code>undefined</code>
@@ -783,6 +975,18 @@ for each defined series.
 
 **Kind**: global typedef  
 **Extends**: <code>Object&lt;string,</code>  
+<a name="FacetFn"></a>
+
+## FacetFn ⇒ <code>Array.&lt;string&gt;</code>
+A facet function takes a bundle and returns an array of facet values.
+
+**Kind**: global typedef  
+**Returns**: <code>Array.&lt;string&gt;</code> - Array of facet values  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| bundle | [<code>Bundle</code>](#Bundle) | The bundle to process |
+
 <a name="Line"></a>
 
 ## Line : <code>Object</code>
