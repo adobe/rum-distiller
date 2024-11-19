@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/adobe/rum-distiller/compare/v1.7.0...v1.8.0) (2024-11-19)
+
+
+### Features
+
+* adjust length obfuscation ([#18](https://github.com/adobe/rum-distiller/issues/18)) ([581ef18](https://github.com/adobe/rum-distiller/commit/581ef1835291468ae821febdde6d7e66a5f30ffa))
+
 # [1.7.0](https://github.com/adobe/rum-distiller/compare/v1.6.1...v1.7.0) (2024-11-18)
 
 
