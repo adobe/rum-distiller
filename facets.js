@@ -55,8 +55,12 @@ export const facets = {
         if (segment.length > 35 && /^[0-9a-f-]+$/.test(segment)) {
           return '<uuid>';
         }
-        // just too long
-        if (segment.length > 60) {
+
+        // if segment is longer than 60 characters, requirement is:
+        // - only letters, digits, dashes, and underscores
+        // - at least 3 dashes or underscores as separators
+        const s = segment.replace(/_/g, '-'); //  convience to shorten regexes (\w contains _)
+        if (s.length > 60 && !(/^[\s\w-]+$/.test(s) && /^([\d\w]+-){3}/g.test(s))) {
           return '...';
         }
         return segment;
