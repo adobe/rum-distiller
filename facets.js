@@ -60,7 +60,7 @@ export const facets = {
         // - only letters, digits, dashes, and underscores
         // - at least 3 dashes or underscores as separators
         const s = segment.replace(/_/g, '-'); //  convience to shorten regexes (\w contains _)
-        if (s.length > 60 && !(/^[\s\w-]+$/.test(s) && /^([\d\w]+-){3}/g.test(s))) {
+        if (s.length > 60 && !(/^[\s\w-.]+$/.test(s) && /^([\d\w]+-){3}/g.test(s))) {
           return '...';
         }
         return segment;
