@@ -55,6 +55,12 @@ export const facets = {
         if (segment.length > 35 && /^[0-9a-f-]+$/.test(segment)) {
           return '<uuid>';
         }
+
+        // if segment is longer than 60 characters
+        // requirement is to have at least two dashes or underscores
+        if (segment.length > 60 && !/^([a-zA-Z0-9]+[-_][a-zA-Z0-9]+[-_][a-zA-Z0-9]+)*$/.test(segment)) {
+          return '...';
+        }
         return segment;
       }).join('/');
     return u.toString();
