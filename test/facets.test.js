@@ -49,7 +49,7 @@ describe('facets:url', () => {
     // uuid in path
     assert.equal(facets.url({ url: 'https://www.example.com/path/123e4567-e89b-12d3-a456-426614174000' }), `https://www.example.com/path/${encodeURIComponent('<uuid>')}`);
     // long path
-    assert.equal(facets.url({ url: 'https://www.example.com/path/loremlipsumdolorsitametconsecteturadipiscingelit-1234567890-abcdefghijklmnopqrstuvwxyz' }), 'https://www.example.com/path/loremlipsumdolorsitametconsecteturadipiscingelit-1234567890-abcdefghijklmnopqrstuvwxyz');
+    assert.equal(facets.url({ url: 'https://www.example.com/path/loremlipsumdolorsitametconsecteturadipiscingelit-1234567890-abcdefghijklmnopqrstuvwxyz' }), 'https://www.example.com/path/...');
     assert.equal(facets.url({ url: 'https://www.example.com/path/loremlipsumdolorsitametconsecteturadipiscingelit-abcdefghijklmnopqrstuvwxyz' }), 'https://www.example.com/path/...');
     assert.equal(facets.url({ url: 'https://blog.adobe.com/en/publish/2024/09/11/bringing-gen-ai-to-video-adobe-firefly-video-model-coming-soon' }), 'https://blog.adobe.com/en/publish/2024/09/11/bringing-gen-ai-to-video-adobe-firefly-video-model-coming-soon');
     assert.equal(facets.url({ url: 'https://www.example.com/consumer84899324c8-5ef06d65eba5&cui=47cea5903b64448fad519184899324c8-5ef06d65eba5&EulaDt=20220413&expdt=20240918&hardware_id=c715069c77fa4b74040b459e3307c6d5&messageid=fbde7912-ef73-4793-bd1d-aec0aed2a945&pkgid=539&rcode=16.0+R122&resellerid=1357&rnwsrc=ngm&sessionid=7f3d8203' }), 'https://www.example.com/...');
