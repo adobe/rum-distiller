@@ -59,7 +59,8 @@ export const facets = {
         // if segment is longer than 60 characters
         // requirement is to have at least 3 dashes or underscores
         // and surrounded with letters and digits
-        if (segment.length > 60 && !(/^[a-zA-Z0-9-_]+$/.test(segment) && /^[a-zA-Z0-9]+[-_][a-zA-Z0-9]+[-_][a-zA-Z0-9]+[-_][a-zA-Z0-9]+/.test(segment))) {
+        const s = segment.replace(/_/g, '-'); //  convience to shorten regexes (\w contains _)
+        if (s.length > 60 && !(/^[\s\w-]+$/.test(s) && /^([\d\w]+-){3}/g.test(s))) {
           return '...';
         }
         return segment;
