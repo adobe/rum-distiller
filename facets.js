@@ -10,6 +10,7 @@
  * governing permissions and limitations under the License.
  */
 import { reclassifyConsent, reclassifyAcquisition, scoreCWV } from './utils.js';
+import { classifyReferrer } from './referrer.js';
 /**
   * @import {Bundle} from './distiller.js'
   */
@@ -59,6 +60,7 @@ export const facets = {
     return u.toString();
   },
   plainURL: (bundle) => {
+    if (bundle.domain) return bundle.domain;
     const u = new URL(bundle.url);
     u.search = '';
     u.hash = '';
@@ -136,6 +138,29 @@ export const facets = {
       .pop() || [],
   ),
   /**
+   * Classifies the referrer page of the enter event.
+   * @param {Bundle} bundle the bundle of sampled rum events
+   * @returns {string[]} a list of referrer classifications, following the pattern:
+   * - the original source URL
+   * - the type and vendor of the referrer, e.g. `search:google`
+   * - the type of the referrer, e.g. `search`
+   * - the vendor of the referrer, regardless of type, e.g. `*:google`
+   */
+  enterSource: (bundle) => bundle.events
+    .filter((evt) => evt.checkpoint === 'enter')
+    .map((evt) => evt.source)
+    .filter((source) => source)
+    .map((source) => {
+      const referrerClass = classifyReferrer(source);
+      return referrerClass ? [
+        source,
+        `${referrerClass.type}:${referrerClass.vendor}`,
+        referrerClass.type,
+        `*:${referrerClass.vendor}`,
+      ] : source;
+    })
+    .flat(),
+  /**
    * Extracts the target of the media view event from the bundle. This
    * is typically the URL of an image or video, and the URL is stripped
    * of query parameters, hash, user, and password.
@@ -160,6 +185,14 @@ export const facets = {
       return u.toString();
     }),
 };
+
+/**
+ * A facet function takes a bundle and returns an array of facet values.
+ * @typedef {function} FacetFn
+ * @param {Bundle} bundle The bundle to process
+ * @returns {string[]} Array of facet values
+ */
+
 /**
  * A collection of facet factory functions. Each function takes one or more
  * parameters and returns a facet function according to the parameters.
@@ -168,10 +201,8 @@ export const facetFns = {
   /**
    * Returns a function that creates a facet function for the source of the given
    * checkpoint.
-   * @param {string} cp the checkpoint
-  * @returns {
-  function(bundle: Bundle): string[]
-} a facet function
+   * @return {FacetFn} - a facet function
+   * @param {string} cp - the checkpoint
    */
   checkpointSource: (cp) => (bundle) => Array.from(
     bundle.events
@@ -187,7 +218,7 @@ export const facetFns = {
    * Returns a function that creates a facet function for the target of the given
    * checkpoint.
    * @param {string} cp the checkpoint
-   * @returns {function(bundle: Bundle): string[]} a facet function
+   * @returns {FacetFn} a facet function
    */
   checkpointTarget: (cp) => (bundle) => Array.from(
     bundle.events

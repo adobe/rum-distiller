@@ -1,3 +1,23 @@
+# [1.7.0](https://github.com/adobe/rum-distiller/compare/v1.6.1...v1.7.0) (2024-11-18)
+
+
+### Bug Fixes
+
+* **referrer:** classify video referrers, tiktok isn't a social network ([7542981](https://github.com/adobe/rum-distiller/commit/754298175544cf9914f71c3b2822fc7ced761229))
+
+
+### Features
+
+* **facets:** add enterSource facet, which is based on the referrer classification ([6cbbf55](https://github.com/adobe/rum-distiller/commit/6cbbf55533e7c479cd241efa4fac96ab0978fa06))
+* **referrer:** add referrer classification ([ce704c3](https://github.com/adobe/rum-distiller/commit/ce704c361f1f4798d6ea30e9419fd8e362ceedf3))
+
+## [1.6.1](https://github.com/adobe/rum-distiller/compare/v1.6.0...v1.6.1) (2024-11-14)
+
+
+### Bug Fixes
+
+* respect plainURL contract for domains ([#19](https://github.com/adobe/rum-distiller/issues/19)) ([47a265d](https://github.com/adobe/rum-distiller/commit/47a265d27a15828002437b5885e8c34199f40c7d))
+
 # [1.6.0](https://github.com/adobe/rum-distiller/compare/v1.5.0...v1.6.0) (2024-10-15)
 
 

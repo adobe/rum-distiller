@@ -75,6 +75,37 @@ describe('facets:plainURL', () => {
     assert.equal(facets.plainURL({ url: 'https://www.example.com/user/12345' }), 'https://www.example.com/user/12345');
     assert.equal(facets.plainURL({ url: 'https://www.example.com/hash/a1b2c3d4e5f6' }), 'https://www.example.com/hash/a1b2c3d4e5f6');
     assert.equal(facets.plainURL({ url: 'https://www.example.com/path/to/page?query=string#fragment' }), 'https://www.example.com/path/to/page');
+    // base64 encoded data in path
+    assert.equal(facets.plainURL({ url: 'https://www.example.com/path/VGVzdHMgYXJlIGtpbmRhIGltcG9ydGFudA==' }), 'https://www.example.com/path/VGVzdHMgYXJlIGtpbmRhIGltcG9ydGFudA==');
+    // uuid in path
+    assert.equal(facets.plainURL({ url: 'https://www.example.com/path/123e4567-e89b-12d3-a456-426614174000' }), 'https://www.example.com/path/123e4567-e89b-12d3-a456-426614174000');
+    // long path
+    assert.equal(facets.plainURL({ url: 'https://www.example.com/path/loremlipsumdolorsitametconsecteturadipiscingelit-1234567890-abcdefghijklmnopqrstuvwxyz' }), 'https://www.example.com/path/loremlipsumdolorsitametconsecteturadipiscingelit-1234567890-abcdefghijklmnopqrstuvwxyz');
+    assert.equal(facets.plainURL({ url: 'https://blog.adobe.com/en/publish/2024/09/11/bringing-gen-ai-to-video-adobe-firefly-video-model-coming-soon' }), 'https://blog.adobe.com/en/publish/2024/09/11/bringing-gen-ai-to-video-adobe-firefly-video-model-coming-soon');
+
+    assert.equal(facets.plainURL({ domain: 'custom.domain' }), 'custom.domain');
+  });
+
+  it('plainURL:DataChunks', () => {
+    const d = new DataChunks();
+    d.load(testChunks);
+    d.addSeries('pageViews', pageViews);
+    d.addFacet('plainURL', facets.plainURL);
+
+    // Assert that we have facets for URL
+    assert.ok(d.facets.plainURL.length > 0);
+    assert.equal(d.facets.plainURL.length, 92);
+
+    assert.equal(d.facets.plainURL[0].value, 'https://www.aem.live/home');
+  });
+});
+
+describe('facets:plainURL', () => {
+  it('plainURL:bare', () => {
+    assert.equal(facets.plainURL({ url: 'https://www.example.com/path/to/page' }), 'https://www.example.com/path/to/page');
+    assert.equal(facets.plainURL({ url: 'https://www.example.com/user/12345' }), 'https://www.example.com/user/12345');
+    assert.equal(facets.plainURL({ url: 'https://www.example.com/hash/a1b2c3d4e5f6' }), 'https://www.example.com/hash/a1b2c3d4e5f6');
+    assert.equal(facets.plainURL({ url: 'https://www.example.com/path/to/page?query=string#fragment' }), 'https://www.example.com/path/to/page');
     assert.equal(facets.plainURL({ url: 'https://blog.adobe.com/en/publish/2024/09/11/bringing-gen-ai-to-video-adobe-firefly-video-model-coming-soon' }), 'https://blog.adobe.com/en/publish/2024/09/11/bringing-gen-ai-to-video-adobe-firefly-video-model-coming-soon');
   });
 });
@@ -162,6 +193,26 @@ describe('facets:acquisitionSource', () => {
     d.addFacet('acquisitionSource', facets.acquisitionSource);
 
     assert.equal(d.facets.acquisitionSource.length, 0);
+  });
+});
+
+describe('facets:enterSource', () => {
+  it('enterSource:bare', () => {
+    assert.deepEqual(facets.enterSource({ events: [{ checkpoint: 'enter', source: 'https://www.example.com' }] }), ['https://www.example.com']);
+    assert.deepEqual(facets.enterSource({ events: [{ checkpoint: 'enter', source: 'https://www.google.com' }] }), ['https://www.google.com', 'search:google', 'search', '*:google']);
+  });
+
+  it('enterSource:DataChunks', () => {
+    const d = new DataChunks();
+    d.load(testChunks);
+    d.addSeries('pageViews', pageViews);
+    d.addFacet('enterSource', facets.enterSource);
+
+    assert.equal(d.facets.enterSource.length, 46);
+    assert.equal(d.facets.enterSource[2].value, 'search'); // all search engines
+    assert.equal(d.facets.enterSource[3].value, 'search:google'); // google search
+    assert.equal(d.facets.enterSource[4].value, '*:google'); // all google properties
+    assert.equal(d.facets.enterSource[5].value, 'https://www.google.com/'); // that one specific google page
   });
 });
 
