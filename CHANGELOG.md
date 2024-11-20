@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/adobe/rum-distiller/compare/v1.8.0...v1.9.0) (2024-11-20)
+
+
+### Features
+
+* trigger release ([2b38800](https://github.com/adobe/rum-distiller/commit/2b38800cce59d4cd2a043a2701ec8393f4caab20))
+
 # [1.8.0](https://github.com/adobe/rum-distiller/compare/v1.7.0...v1.8.0) (2024-11-19)
 
 
