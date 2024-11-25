@@ -155,6 +155,9 @@ export function toISOStringWithTimezone(date) {
     return `${diff}${pad(tzOffset / 60)}:${pad(tzOffset % 60)}`;
   };
 
+  // Adjust the date for the timezone offset
+  const tzOffset = date.getTimezoneOffset() * 60000; // offset in milliseconds
+  const adjustedDate = new Date(date.getTime() - tzOffset);
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}${getTimezoneOffset()}`;
 }
 
