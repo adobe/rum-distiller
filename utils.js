@@ -157,6 +157,7 @@ export function toISOStringWithTimezone(date) {
 
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}${getTimezoneOffset()}`;
 }
+
 export function scoreBundle(bundle) {
   // a bundle is good if all CWV that have a value are good
   // a bundle is ni if all CWV that have a value are ni or good
