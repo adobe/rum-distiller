@@ -158,7 +158,7 @@ export function toISOStringWithTimezone(date) {
   // Adjust the date for the timezone offset
   const tzOffset = date.getTimezoneOffset() * 60000; // offset in milliseconds
   const adjustedDate = new Date(date.getTime() - tzOffset);
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}${getTimezoneOffset()}`;
+  return `${adjustedDate.getFullYear()}-${pad(adjustedDate.getMonth() + 1)}-${pad(adjustedDate.getDate())}T${pad(adjustedDate.getHours())}:${pad(adjustedDate.getMinutes())}:${pad(adjustedDate.getSeconds())}${getTimezoneOffset()}`;
 }
 
 export function scoreBundle(bundle) {
