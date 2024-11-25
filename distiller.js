@@ -426,11 +426,12 @@ export class DataChunks {
    * @returns {Bundle[]} all bundles, regardless of the chunk they belong to
    */
   get bundles() {
-    if (this.memo.bundles) return this.memo.bundles;
-    this.memo.bundles = this.data.reduce((acc, chunk) => {
-      acc.push(...chunk.rumBundles);
-      return acc;
-    }, []);
+    if (!this.memo.bundles) {
+      this.memo.bundles = [];
+      for (const chunk of this.data) {
+        this.memo.bundles = this.memo.bundles.concat(chunk.rumBundles);
+      }
+    }
     return this.memo.bundles;
   }
 
