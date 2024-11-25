@@ -426,11 +426,27 @@ export class DataChunks {
    * @returns {Bundle[]} all bundles, regardless of the chunk they belong to
    */
   get bundles() {
-    if (this.memo.bundles) return this.memo.bundles;
-    this.memo.bundles = this.data.reduce((acc, chunk) => {
-      acc.push(...chunk.rumBundles);
-      return acc;
-    }, []);
+    if (!this.memo.bundles) {
+      // Calculate total length of all rumBundles
+      let totalLength = 0;
+      for (let i = 0; i < this.data.length; i += 1) {
+        totalLength += this.data[i].rumBundles.length;
+      }
+
+      // Preallocate the array
+      this.memo.bundles = new Array(totalLength);
+
+      // Fill the preallocated array
+      let index = 0;
+      for (let i = 0; i < this.data.length; i += 1) {
+        // eslint-disable-next-line prefer-destructuring
+        const rumBundles = this.data[i].rumBundles;
+        for (let j = 0; j < rumBundles.length; j += 1) {
+          this.memo.bundles[index] = rumBundles[j];
+          index += 1;
+        }
+      }
+    }
     return this.memo.bundles;
   }
 
