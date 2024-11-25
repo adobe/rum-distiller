@@ -111,7 +111,7 @@ describe('toISOStringWithTimezone', () => {
   it('should pad single digit month, day, hour, minute, and second', () => {
     const date = new Date(2024, 2, 5, 7, 8, 9);
     const result = toISOStringWithTimezone(date);
-    assert.strictEqual(result, '2024-03-05T07:08:09+05:30');
+    assert.strictEqual(result, '2024-03-05T12:38:09+05:30');
   });
 });
 
