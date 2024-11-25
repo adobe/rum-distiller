@@ -52,7 +52,7 @@ export function linearRegression(data) {
   return { slope, intercept };
 }
 
-function standardNormalCDF(x) {
+export function standardNormalCDF(x) {
   // Approximation of the standard normal CDF using the Hastings algorithm
   const t = 1 / (1 + 0.2316419 * Math.abs(x));
   const d = 0.3989423 * Math.exp((-x * x) / 2);
@@ -65,7 +65,7 @@ function standardNormalCDF(x) {
   return prob;
 }
 
-function getZTestPValue(Z) {
+export function getZTestPValue(Z) {
   // Approximate the p-value using the standard normal distribution
   // This is a simplified approximation and may not be as accurate as using a
   // Z-table or more advanced methods
@@ -110,7 +110,7 @@ export function zTestTwoProportions(sample1, conversions1, sample2, conversions2
  * The error function, also known as the Gauss error function.
  * @param {number} x the value to calculate the error function for
  */
-function erf(x1) {
+export function erf(x1) {
   // save the sign of x
   const sign = x1 >= 0 ? 1 : -1;
   const x = Math.abs(x1);
@@ -129,6 +129,7 @@ function erf(x1) {
 
   return sign * y;
 }
+
 /**
  * @typedef {Object} MeanVariance
  * @property {number} mean - the mean of a dataset
@@ -139,7 +140,13 @@ function erf(x1) {
  * @param {number[]} data - the input data
  * @returns {MeanVariance} mean and variance of the input dataset
  */
-function calcMeanVariance(data) {
+export function calcMeanVariance(data) {
+  const { length: n } = data;
+
+  if (n === 0) {
+    throw new Error('Array must contain at least one element.');
+  }
+
   let sum = 0;
   let variance = 0;
 
@@ -191,6 +198,9 @@ export function samplingError(total, samples) {
  * @returns {number} the p-value, a value between 0 and 1
  */
 export function tTest(left, right) {
+  if (left.length === 0 || right.length === 0) {
+    throw new Error('Array must contain at least one element.');
+  }
   const { mean: meanLeft, variance: varianceLeft } = calcMeanVariance(left);
   const { mean: meanRight, variance: varianceRight } = calcMeanVariance(right);
   const pooledVariance = (varianceLeft + varianceRight) / 2;
@@ -199,6 +209,7 @@ export function tTest(left, right) {
   const p = 1 - (0.5 + 0.5 * erf(tValue / Math.sqrt(2)));
   return p;
 }
+
 export function roundToConfidenceInterval(
   total,
   samples = total,
