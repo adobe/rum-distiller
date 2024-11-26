@@ -51,6 +51,7 @@ const utils = {
   reclassifyAcquisition,
   reclassifyEnter,
   addCalculatedProps,
+  classifyAcquisition,
 };
 const stats = {
   zTestTwoProportions,
@@ -73,10 +74,6 @@ const series = {
   engagement,
 };
 
-const acquisition = {
-  classifyAcquisition,
-};
-
 export {
-  DataChunks, utils, stats, series, facets, facetFns, acquisition,
+  DataChunks, utils, stats, series, facets, facetFns,
 };
