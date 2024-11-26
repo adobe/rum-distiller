@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/adobe/rum-distiller/compare/v1.9.1...v1.10.0) (2024-11-26)
+
+
+### Features
+
+* add export for acquisition ([a33de40](https://github.com/adobe/rum-distiller/commit/a33de40df53a601bdcdc11c711ac499d639ec735))
+
 ## [1.9.1](https://github.com/adobe/rum-distiller/compare/v1.9.0...v1.9.1) (2024-11-25)
 
 
