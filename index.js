@@ -38,6 +38,7 @@ import {
   addCalculatedProps,
 } from './utils.js';
 import { facets, facetFns } from './facets.js';
+import { classifyAcquisition } from './acquisition.js';
 
 const utils = {
   isKnownFacet,
@@ -50,6 +51,7 @@ const utils = {
   reclassifyAcquisition,
   reclassifyEnter,
   addCalculatedProps,
+  classifyAcquisition,
 };
 const stats = {
   zTestTwoProportions,
