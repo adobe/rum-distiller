@@ -38,6 +38,7 @@ import {
   addCalculatedProps,
 } from './utils.js';
 import { facets, facetFns } from './facets.js';
+import { classifyAcquisition } from './acquisition.js';
 
 const utils = {
   isKnownFacet,
@@ -72,6 +73,10 @@ const series = {
   engagement,
 };
 
+const acquisition = {
+  classifyAcquisition,
+};
+
 export {
-  DataChunks, utils, stats, series, facets, facetFns,
+  DataChunks, utils, stats, series, facets, facetFns, acquisition,
 };
