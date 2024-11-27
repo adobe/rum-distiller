@@ -1,3 +1,18 @@
+# [1.10.0](https://github.com/adobe/rum-distiller/compare/v1.9.1...v1.10.0) (2024-11-26)
+
+
+### Features
+
+* add export for acquisition ([a33de40](https://github.com/adobe/rum-distiller/commit/a33de40df53a601bdcdc11c711ac499d639ec735))
+
+## [1.9.1](https://github.com/adobe/rum-distiller/compare/v1.9.0...v1.9.1) (2024-11-25)
+
+
+### Bug Fixes
+
+* stack size exceeds for get bundles in nodejs ([b731eb1](https://github.com/adobe/rum-distiller/commit/b731eb1bce32c46e0acfa5e5704d59e95d86d921))
+* stack size exceeds for get bundles in nodejs ([cd0b0f8](https://github.com/adobe/rum-distiller/commit/cd0b0f8af8f2c389e9f7684f67aff7590a3ebd39))
+
 # [1.9.0](https://github.com/adobe/rum-distiller/compare/v1.8.0...v1.9.0) (2024-11-20)
 
 
