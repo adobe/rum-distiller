@@ -1,3 +1,11 @@
+## [1.11.1](https://github.com/adobe/rum-distiller/compare/v1.11.0...v1.11.1) (2024-11-27)
+
+
+### Bug Fixes
+
+* for release ([b75c0a7](https://github.com/adobe/rum-distiller/commit/b75c0a7fb04fd04b2d101906e352ea70dfc5c345))
+* for release ([a2aaa67](https://github.com/adobe/rum-distiller/commit/a2aaa67e5177923b4001023db13ee72a41010e97))
+
 # [1.11.0](https://github.com/adobe/rum-distiller/compare/v1.10.0...v1.11.0) (2024-11-27)
 
 
