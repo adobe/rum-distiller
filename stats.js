@@ -52,7 +52,7 @@ export function linearRegression(data) {
   return { slope, intercept };
 }
 
-function standardNormalCDF(x) {
+export function standardNormalCDF(x) {
   // Approximation of the standard normal CDF using the Hastings algorithm
   const t = 1 / (1 + 0.2316419 * Math.abs(x));
   const d = 0.3989423 * Math.exp((-x * x) / 2);
@@ -129,6 +129,7 @@ function erf(x1) {
 
   return sign * y;
 }
+
 /**
  * @typedef {Object} MeanVariance
  * @property {number} mean - the mean of a dataset
@@ -191,6 +192,9 @@ export function samplingError(total, samples) {
  * @returns {number} the p-value, a value between 0 and 1
  */
 export function tTest(left, right) {
+  if (left.length === 0 || right.length === 0) {
+    throw new Error('Array must contain at least one element.');
+  }
   const { mean: meanLeft, variance: varianceLeft } = calcMeanVariance(left);
   const { mean: meanRight, variance: varianceRight } = calcMeanVariance(right);
   const pooledVariance = (varianceLeft + varianceRight) / 2;
@@ -199,6 +203,7 @@ export function tTest(left, right) {
   const p = 1 - (0.5 + 0.5 * erf(tValue / Math.sqrt(2)));
   return p;
 }
+
 export function roundToConfidenceInterval(
   total,
   samples = total,

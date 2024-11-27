@@ -59,6 +59,7 @@ class Consent {
       .pop();
   }
 }
+
 export default function classifyConsent(cssSelector) {
   if (!cssSelector) return undefined;
   const result = vendors.find(({ match }) => match.test(cssSelector));

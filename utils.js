@@ -144,19 +144,6 @@ export function toHumanReadable(num, precision = 2) {
   return formatter.format(num).toLocaleLowerCase();
 }
 
-export function toISOStringWithTimezone(date) {
-  // Pad a number to 2 digits
-  const pad = (n) => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
-
-  // Get timezone offset in ISO format (+hh:mm or -hh:mm)
-  const getTimezoneOffset = () => {
-    const tzOffset = -date.getTimezoneOffset();
-    const diff = tzOffset >= 0 ? '+' : '-';
-    return `${diff}${pad(tzOffset / 60)}:${pad(tzOffset % 60)}`;
-  };
-
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}${getTimezoneOffset()}`;
-}
 export function scoreBundle(bundle) {
   // a bundle is good if all CWV that have a value are good
   // a bundle is ni if all CWV that have a value are ni or good
@@ -216,31 +203,6 @@ export function reclassifyAcquisition({ source, target, checkpoint }) {
   }
   */
   return { source, target, checkpoint };
-}
-
-export function reclassifyEnter(acc, event, i, allEvents) {
-  const has = (cp) => allEvents.find((evt) => evt.checkpoint === cp);
-
-  if (event.checkpoint === 'enter') acc.referrer = event.source;
-  if (event.checkpoint === 'acquisition') acc.acquisition = event.source;
-  if (
-    // we need to reclassify when we have seen both enter and acquisition
-    (event.checkpoint === 'enter' || event.checkpoint === 'acquisition')
-    // but if there is no acquisition, we reclassify the enter event
-    && ((acc.acquisition && acc.referrer) || (!has('acquisition')))) {
-    const [aGroup, aCategory, aVendor] = (acc.acquisition || '').split(':');
-    const [, rCategory, rVendor] = (classifyAcquisition(acc.referrer) || '').split(':');
-    const group = aGroup || 'earned';
-    const category = rCategory || aCategory;
-    const vndr = rVendor || aVendor;
-    const newsrc = `${group}:${category}:${vndr}`.replace(/:undefined/g, '');
-    // console.log('reclassifyEnter', acc.referrer, acc.acquisition, newsrc);
-    acc.push({ checkpoint: 'acquisition', source: newsrc });
-  }
-  if (event.checkpoint !== 'acquisition') {
-    acc.push(event);
-  }
-  return acc;
 }
 
 /**
