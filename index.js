@@ -29,12 +29,10 @@ import {
   isKnownFacet,
   scoreCWV,
   toHumanReadable,
-  toISOStringWithTimezone,
   scoreBundle,
   computeConversionRate,
   reclassifyConsent,
   reclassifyAcquisition,
-  reclassifyEnter,
   addCalculatedProps,
 } from './utils.js';
 import { facets, facetFns } from './facets.js';
@@ -44,12 +42,10 @@ const utils = {
   isKnownFacet,
   scoreCWV,
   toHumanReadable,
-  toISOStringWithTimezone,
   scoreBundle,
   computeConversionRate,
   reclassifyConsent,
   reclassifyAcquisition,
-  reclassifyEnter,
   addCalculatedProps,
   classifyAcquisition,
 };
