@@ -1,3 +1,12 @@
+# [1.11.0](https://github.com/adobe/rum-distiller/compare/v1.10.0...v1.11.0) (2024-11-27)
+
+
+### Features
+
+* test coverage for consent.js ([87d46ca](https://github.com/adobe/rum-distiller/commit/87d46cae8997ef0b71c0826c95b77a8b230c36d1))
+* test coverage for stats.js ([cb93c52](https://github.com/adobe/rum-distiller/commit/cb93c525ef1b4c191fc0b2caf28899759246aa31))
+* test coverage for utils.js ([31ccdcd](https://github.com/adobe/rum-distiller/commit/31ccdcdc9873c8f30ebadefbf84fd55aa7a4cd08))
+
 # [1.10.0](https://github.com/adobe/rum-distiller/compare/v1.9.1...v1.10.0) (2024-11-26)
 
 
