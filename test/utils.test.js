@@ -13,6 +13,7 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   computeConversionRate, isKnownFacet, toISOStringWithTimezone, scoreBundle, reclassifyAcquisition, addCalculatedProps,
+
 } from '../utils.js';
 
 // need to confirm if results are as expected
@@ -197,8 +198,4 @@ describe('addCalculatedProps', () => {
     assert.strictEqual(result.visit, undefined);
     assert.strictEqual(result.events[0].source, '');
   });
-});
-
-describe('reClassifyEnter', () => {
-  // need to confirm functionality before addressing this
 });
