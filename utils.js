@@ -144,23 +144,6 @@ export function toHumanReadable(num, precision = 2) {
   return formatter.format(num).toLocaleLowerCase();
 }
 
-export function toISOStringWithTimezone(date) {
-  // Pad a number to 2 digits
-  const pad = (n) => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
-
-  // Get timezone offset in ISO format (+hh:mm or -hh:mm)
-  const getTimezoneOffset = () => {
-    const tzOffset = -date.getTimezoneOffset();
-    const diff = tzOffset >= 0 ? '+' : '-';
-    return `${diff}${pad(tzOffset / 60)}:${pad(tzOffset % 60)}`;
-  };
-
-  // Adjust the date for the timezone offset
-  const tzOffset = date.getTimezoneOffset() * 60000; // offset in milliseconds
-  const adjustedDate = new Date(date.getTime() - tzOffset);
-  return `${adjustedDate.getFullYear()}-${pad(adjustedDate.getMonth() + 1)}-${pad(adjustedDate.getDate())}T${pad(adjustedDate.getHours())}:${pad(adjustedDate.getMinutes())}:${pad(adjustedDate.getSeconds())}${getTimezoneOffset()}`;
-}
-
 export function scoreBundle(bundle) {
   // a bundle is good if all CWV that have a value are good
   // a bundle is ni if all CWV that have a value are ni or good

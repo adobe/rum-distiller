@@ -12,7 +12,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  computeConversionRate, isKnownFacet, toISOStringWithTimezone, scoreBundle, reclassifyAcquisition, addCalculatedProps,
+  computeConversionRate, isKnownFacet, scoreBundle, reclassifyAcquisition, addCalculatedProps,
 
 } from '../utils.js';
 
@@ -75,44 +75,6 @@ describe('computeConversionRate', () => {
     assert.ok(isKnownFacet('url!'));
     assert.ok(isKnownFacet('url~'));
     assert.ok(!isKnownFacet('url+'));
-  });
-});
-
-const originalGetTimezoneOffset = Date.prototype.getTimezoneOffset;
-
-describe('toISOStringWithTimezone', () => {
-  before(() => {
-    // Mock the timezone offset to +05:30 (330 minutes)
-    Date.prototype.getTimezoneOffset = () => -330;
-  });
-
-  after(() => {
-    // Restore the original getTimezoneOffset method
-    Date.prototype.getTimezoneOffset = originalGetTimezoneOffset;
-  });
-
-  it('should format date with timezone offset correctly', () => {
-    const date = new Date('2024-01-01T12:00:00Z');
-    const result = toISOStringWithTimezone(date);
-    assert.strictEqual(result, '2024-01-01T17:30:00+05:30');
-  });
-
-  it('should handle positive timezone offsets', () => {
-    const date = new Date('2024-01-01T12:00:00+05:30');
-    const result = toISOStringWithTimezone(date);
-    assert.strictEqual(result, '2024-01-01T12:00:00+05:30');
-  });
-
-  it('should handle negative timezone offsets', () => {
-    const date = new Date('2024-01-01T12:00:00-04:00');
-    const result = toISOStringWithTimezone(date);
-    assert.strictEqual(result, '2024-01-01T21:30:00+05:30');
-  });
-
-  it('should pad single digit month, day, hour, minute, and second', () => {
-    const date = new Date(2024, 2, 5, 7, 8, 9);
-    const result = toISOStringWithTimezone(date);
-    assert.strictEqual(result, '2024-03-05T12:38:09+05:30');
   });
 });
 
