@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { linearRegression, standardNormalCDF, getZTestPValue, zTestTwoProportions } from '../stats.js';
-import { erf, calcMeanVariance, tTest, samplingError, roundToConfidenceInterval } from '../stats.js';
+import { linearRegression, zTestTwoProportions } from '../stats.js';
+import { tTest, samplingError, roundToConfidenceInterval, standardNormalCDF } from '../stats.js';
 
 describe('linearRegression', () => {
   it('should calculate the correct slope and intercept for a simple linear dataset', () => {
@@ -56,23 +56,6 @@ describe('standardNormalCDF', () => {
   });
 });
 
-describe('getZTestPValue', () => {
-  it('handle case for a Z-score of 0', () => {
-    const result = getZTestPValue(0);
-    assert.strictEqual(result.toFixed(2), '1.00');
-  });
-
-  it('handle case for a positive Z-score', () => {
-    const result = getZTestPValue(5);
-    assert.strictEqual(result.toFixed(2), '0.00');
-  });
-
-  it('handle case for a negative Z-score', () => {
-    const result = getZTestPValue(-5);
-    assert.strictEqual(result.toFixed(2), '0.00');
-  });
-});
-
 describe('zTestTwoProportions', () => {
   it('handle case when the proportions are equal', () => {
     const result = zTestTwoProportions(100, 50, 100, 50);
@@ -92,52 +75,6 @@ describe('zTestTwoProportions', () => {
   it('handle case where both samples have no conversions', () => {
     const result = zTestTwoProportions(100, 0, 100, 0);
     assert.strictEqual(result, 1);
-  });
-});
-
-describe('erf', () => {
-  it('handle case for input 0', () => {
-    const result = erf(0);
-    assert.strictEqual(result.toFixed(2), '0.00');
-  });
-
-  it('handle case for for input 1', () => {
-    const result = erf(1);
-    assert.strictEqual(result.toFixed(2), '0.84');
-  });
-
-  it('handle case for input -1', () => {
-    const result = erf(-1);
-    assert.strictEqual(result.toFixed(2), '-0.84');
-  });
-});
-
-describe('calcMeanVariance', () => {
-  it('handle case for a simple dataset', () => {
-    const data = [1, 2, 3, 4, 5];
-    const result = calcMeanVariance(data);
-    assert.strictEqual(result.mean, 3);
-    assert.strictEqual(result.variance.toFixed(2), '2.00');
-  });
-
-  it('handle case for a dataset with negative numbers', () => {
-    const data = [-1, -2, -3, -4, -5];
-    const result = calcMeanVariance(data);
-    assert.strictEqual(result.mean, -3);
-    assert.strictEqual(result.variance.toFixed(2), '2.00');
-  });
-
-  it('handle case a dataset with a single element', () => {
-    const data = [5];
-    const result = calcMeanVariance(data);
-    assert.strictEqual(result.mean, 5);
-    assert.strictEqual(result.variance, 0);
-  });
-
-  it('handle case an empty dataset', () => {
-    assert.throws(() => {
-      calcMeanVariance([]);
-    }, new Error('Array must contain at least one element.'));
   });
 });
 

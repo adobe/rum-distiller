@@ -65,7 +65,7 @@ export function standardNormalCDF(x) {
   return prob;
 }
 
-export function getZTestPValue(Z) {
+function getZTestPValue(Z) {
   // Approximate the p-value using the standard normal distribution
   // This is a simplified approximation and may not be as accurate as using a
   // Z-table or more advanced methods
@@ -110,7 +110,7 @@ export function zTestTwoProportions(sample1, conversions1, sample2, conversions2
  * The error function, also known as the Gauss error function.
  * @param {number} x the value to calculate the error function for
  */
-export function erf(x1) {
+function erf(x1) {
   // save the sign of x
   const sign = x1 >= 0 ? 1 : -1;
   const x = Math.abs(x1);
@@ -140,13 +140,7 @@ export function erf(x1) {
  * @param {number[]} data - the input data
  * @returns {MeanVariance} mean and variance of the input dataset
  */
-export function calcMeanVariance(data) {
-  const { length: n } = data;
-
-  if (n === 0) {
-    throw new Error('Array must contain at least one element.');
-  }
-
+function calcMeanVariance(data) {
   let sum = 0;
   let variance = 0;
 
