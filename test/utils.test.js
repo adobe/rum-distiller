@@ -12,7 +12,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  computeConversionRate, isKnownFacet, scoreBundle, reclassifyAcquisition, addCalculatedProps,
+  computeConversionRate, isKnownFacet, scoreBundle, reclassifyAcquisition, addCalculatedProps, scoreCWV,
 
 } from '../utils.js';
 
@@ -78,7 +78,6 @@ describe('computeConversionRate', () => {
   });
 });
 
-// need to check coverage for ttfb
 describe('scoreBundle', () => {
   it('should return null if no CWV metrics have a value', () => {
     const bundle = {};
@@ -159,5 +158,71 @@ describe('addCalculatedProps', () => {
     const result = addCalculatedProps(bundle);
     assert.strictEqual(result.visit, undefined);
     assert.strictEqual(result.events[0].source, '');
+  });
+});
+
+describe('scoreCWV', () => {
+  it('should return "good" if lcp is good', () => {
+    const lcp = 2000;
+    const result = scoreCWV(lcp, 'lcp');
+    assert.strictEqual(result, 'good');
+  });
+
+  it('should return "poor" if lcp is poor', () => {
+    const lcp = 5000;
+    const result = scoreCWV(lcp, 'lcp');
+    assert.strictEqual(result, 'poor');
+  });
+
+  it('should return "good" if cls is good', () => {
+    const cls = 0.05;
+    const result = scoreCWV(cls, 'cls');
+    assert.strictEqual(result, 'good');
+  });
+
+  it('should return "ni" if cls is ni', () => {
+    const cls = 0.15;
+    const result = scoreCWV(cls, 'cls');
+    assert.strictEqual(result, 'ni');
+  });
+
+  it('should return "ni" if inp is ni', () => {
+    const inp = 300;
+    const result = scoreCWV(inp, 'inp');
+    assert.strictEqual(result, 'ni');
+  });
+
+  it('should return "poor" if inp is poor', () => {
+    const inp = 600;
+    const result = scoreCWV(inp, 'inp');
+    assert.strictEqual(result, 'poor');
+  });
+
+  it('should return "good" if ttfb is good', () => {
+    const ttfb = 700;
+    const result = scoreCWV(ttfb, 'ttfb');
+    assert.strictEqual(result, 'good');
+  });
+
+  it('should return "ni" if ttfb is ni', () => {
+    const ttfb = 1000;
+    const result = scoreCWV(ttfb, 'ttfb');
+    assert.strictEqual(result, 'ni');
+  });
+
+  it('should return "poor" if ttfb is poor', () => {
+    const ttfb = 2000;
+    const result = scoreCWV(ttfb, 'ttfb');
+    assert.strictEqual(result, 'poor');
+  });
+
+  it('should return null if value is undefined', () => {
+    const result = scoreCWV(undefined, 'ttfb');
+    assert.strictEqual(result, null);
+  });
+
+  it('should return null if value is null', () => {
+    const result = scoreCWV(null, 'ttfb');
+    assert.strictEqual(result, null);
   });
 });
