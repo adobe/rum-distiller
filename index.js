@@ -33,7 +33,6 @@ import {
   computeConversionRate,
   reclassifyConsent,
   reclassifyAcquisition,
-  reclassifyEnter,
   addCalculatedProps,
 } from './utils.js';
 import { facets, facetFns } from './facets.js';
@@ -47,7 +46,6 @@ const utils = {
   computeConversionRate,
   reclassifyConsent,
   reclassifyAcquisition,
-  reclassifyEnter,
   addCalculatedProps,
   classifyAcquisition,
 };
