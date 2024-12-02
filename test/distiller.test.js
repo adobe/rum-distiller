@@ -17,6 +17,10 @@ import { DataChunks } from '../distiller.js';
 import { addCalculatedProps } from '../utils.js';
 import { zTestTwoProportions } from '../stats.js';
 
+// Load fixture data
+const fixturePath = new URL('cruncher.fixture.json', import.meta.url);
+const chunks = JSON.parse(readFileSync(fixturePath));
+
 describe('cruncher.js helper functions', () => {
   it('addCalculatedProps()', () => {
     const bundle = {
@@ -815,7 +819,28 @@ describe('DataChunks', () => {
 
     assert.equal(d.filtered.length, 1);
   });
+
+  it('DataChunk.addClusterFacet()', () => {
+    const d = new DataChunks();
+    d.load(chunks);
+
+    // Define a facet function
+    d.addFacet('url', (bundle) => [bundle.url]);
+
+    // Add a cluster facet based on the 'url' facet
+    d.addClusterFacet('urlCluster', 'url', {
+      count: Math.log10(d.facets.url.length),
+    });
+
+    // Check the cluster facet
+    const { facets } = d;
+    assert.deepEqual(Object.keys(facets), ['url', 'urlCluster']);
+    assert.deepEqual(facets.urlCluster.map((f) => f.value), [
+      '/developer'
+    ]);
+  });
 });
+
 describe('DataChunks.hasConversion', () => {
   const chunks = [
     {
