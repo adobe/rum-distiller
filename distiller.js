@@ -384,6 +384,68 @@ export class DataChunks {
   }
 
   /**
+   * Adds a cluster facet, derived from an existing facet. This facet
+   * will group the data into clusters based on the URL paths.
+   * You can specify the number of clusters and a producer function to
+   * generate the clusters.
+   * @param {string} facetName name of your new facet
+   * @param {string} baseFacet name of the base facet, from which to derive the clusters
+   * @param {object} clusterOptions options
+   * @param {number} clusterOptions.count number of clusters, The default value is log10(nValues)
+   * @param {function} clusterOptions.producer function that takes the cluster value and returns all possible cluster values
+   */
+  addClusterFacet(facetName, baseFacet, {
+    count: clustercount = Math.log10(this.facets[baseFacet].length),
+    producer = url => {
+        const path = new URL(url).pathname;
+        return path
+            .split('/')
+            .filter(Boolean)
+            .reduce((acc, part) => [
+                ...acc,
+                [
+                    ...acc.length ? [acc[acc.length - 1].split('/').slice(1)] : [],
+                    part
+                ]
+                    .flat()
+                    .join('/')
+                    .padStart(part.length + 1, '/')
+            ], []);
+          }
+    }) {
+    const facetValues = this.facets[baseFacet];
+
+    const createClusterMap = (facetValues) => {
+        const clusterMap = {};
+        facetValues.forEach(facet => {
+            const clusters = producer(facet.value);
+            clusters.forEach(cluster => {
+                if (!clusterMap[cluster]) {
+                    clusterMap[cluster] = [];
+                }
+                clusterMap[cluster].push(facet);
+            });
+        });
+        return clusterMap;
+    };
+
+    const clusterMap = createClusterMap(facetValues);
+    const sortedClusters = Object.entries(clusterMap)
+        .sort((a, b) => b[1].length - a[1].length)
+        .slice(0, clustercount)
+        .map(([cluster]) => cluster);
+
+    this.addFacet(facetName, (bundle) => {
+        const facetMatch = facetValues.find(f => f.entries.some(e => e.id === bundle.id));
+        if (!facetMatch) {
+            return [];
+        }
+        const clusters = producer(facetMatch.value);
+        return clusters.filter(cluster => sortedClusters.includes(cluster));
+    });
+  }
+
+  /**
    * @function eventFilterFn
    * @param {Event} event the event to check
    * @returns {boolean} true if the event should be included
