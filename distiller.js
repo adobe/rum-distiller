@@ -422,8 +422,8 @@ export class DataChunks {
         }
       }
 
-      // Calculate the total number of URLs in the superset cluster
-      const totalUrlsInSupersetCluster = Math.floor(facetValues.length + clustercount);
+      // Calculate the total number of items in the superset cluster
+      const totalItemsInSupersetCluster = Math.floor(facetValues.length + clustercount);
       return { clusterMap, mostOccurringCluster, totalUrlsInSupersetCluster };
     };
 
