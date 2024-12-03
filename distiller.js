@@ -413,13 +413,9 @@ export class DataChunks {
 
       // Find the most occurring cluster
       let mostOccurringCluster = null;
-      let maxCount = 0;
-
-      for (const [cluster, count] of clusterMap.entries()) {
-        if (count > maxCount) {
-            maxCount = count;
-            mostOccurringCluster = cluster;
-        }
+      const sortedClusters = [...clusterMap.entries()].sort((a, b) => b[1] - a[1]);
+      if (sortedClusters.length > 0) {
+        mostOccurringCluster = sortedClusters[0];
       }
 
       // Calculate the total number of items in the superset cluster
