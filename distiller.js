@@ -395,7 +395,8 @@ export class DataChunks {
    * @param {number} clusterOptions.count number of clusters, The default value is log10(nValues)
    * @param {function} clusterOptions.producer function that takes the cluster value and returns all possible cluster values
    */
-  addClusterFacet(facetName, baseFacet, { count: clustercount = Math.floor(Math.log10(this.facets[baseFacet].length)) }) {
+  addClusterFacet(facetName, baseFacet, { count: clustercount = Math.floor(Math.log10(this.facets[baseFacet].length)),
+  producer: urlProducer }) {
     const facetValues = this.facets[baseFacet];
 
     const createClusterMap = () => {
