@@ -237,7 +237,7 @@ export function addCalculatedProps(bundle) {
   return bundle;
 }
 
-export function urlProducer(url) {
+export function producer(url) {
   const path = new URL(url).pathname;
   return path
     .split('/')
