@@ -13,7 +13,7 @@
  * This module is another service worker, which will handle the number crunching, i.e.
  * filtering, aggregating, and summarizing the data.
  */
-import { urlProducer } from "./utils.js";
+import { producer } from "./utils.js";
 /* eslint-disable max-classes-per-file */
 /**
  * @typedef {Object} RawEvent - a raw RUM event
@@ -401,7 +401,7 @@ export class DataChunks {
 
     const createClusterMap = () => {
       const clusterMap = facetValues.reduce((map, facet) => {
-        const clusters = urlProducer(facet.value);
+        const clusters = producer(facet.value);
         clusters.forEach(cluster => {
           if (!map.has(cluster)) {
             map.set(cluster, 0);
@@ -424,10 +424,10 @@ export class DataChunks {
 
       // Calculate the total number of items in the superset cluster
       const totalItemsInSupersetCluster = Math.floor(facetValues.length + clustercount);
-      return { clusterMap, mostOccurringCluster, totalUrlsInSupersetCluster };
+      return { clusterMap, mostOccurringCluster, totalItemsInSupersetCluster };
     };
 
-    const { clusterMap, mostOccurringCluster, totalUrlsInSupersetCluster } = createClusterMap();
+    const { clusterMap, mostOccurringCluster, totalItemsInSupersetCluster } = createClusterMap();
     const sortedClusters = [...clusterMap.entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, clustercount)
@@ -435,7 +435,7 @@ export class DataChunks {
 
     this.addFacet(facetName, (bundle) => {
         const facetMatch = facetValues.find(f => f.entries.some(e => e.id === bundle.id));
-        const clusters = urlProducer(facetMatch.value);
+        const clusters = producer(facetMatch.value);
         return [ facetMatch, ...clusters.filter(cluster => sortedClusters.includes(cluster)) ];
     });
   }
