@@ -236,3 +236,20 @@ export function addCalculatedProps(bundle) {
   });
   return bundle;
 }
+
+export function urlProducer(url) {
+  const path = new URL(url).pathname;
+  return path
+    .split('/')
+    .filter(Boolean)
+    .reduce((acc, part) => [
+      ...acc,
+      [
+        ...acc.length ? [acc[acc.length - 1].split('/').slice(1)] : [],
+        part
+      ]
+        .flat()
+        .join('/')
+        .padStart(part.length + 1, '/')
+    ], []);
+}

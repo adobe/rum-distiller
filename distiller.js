@@ -13,6 +13,7 @@
  * This module is another service worker, which will handle the number crunching, i.e.
  * filtering, aggregating, and summarizing the data.
  */
+import { urlProducer } from "./utils.js";
 /* eslint-disable max-classes-per-file */
 /**
  * @typedef {Object} RawEvent - a raw RUM event
@@ -394,54 +395,47 @@ export class DataChunks {
    * @param {number} clusterOptions.count number of clusters, The default value is log10(nValues)
    * @param {function} clusterOptions.producer function that takes the cluster value and returns all possible cluster values
    */
-  addClusterFacet(facetName, baseFacet, {
-    count: clustercount = Math.log10(this.facets[baseFacet].length),
-    producer = url => {
-        const path = new URL(url).pathname;
-        return path
-            .split('/')
-            .filter(Boolean)
-            .reduce((acc, part) => [
-                ...acc,
-                [
-                    ...acc.length ? [acc[acc.length - 1].split('/').slice(1)] : [],
-                    part
-                ]
-                    .flat()
-                    .join('/')
-                    .padStart(part.length + 1, '/')
-            ], []);
-          }
-    }) {
+  addClusterFacet(facetName, baseFacet, { count: clustercount = Math.floor(Math.log10(this.facets[baseFacet].length)) }) {
     const facetValues = this.facets[baseFacet];
 
-    const createClusterMap = (facetValues) => {
-        const clusterMap = {};
-        facetValues.forEach(facet => {
-            const clusters = producer(facet.value);
-            clusters.forEach(cluster => {
-                if (!clusterMap[cluster]) {
-                    clusterMap[cluster] = [];
-                }
-                clusterMap[cluster].push(facet);
-            });
+    const createClusterMap = () => {
+      const clusterMap = facetValues.reduce((map, facet) => {
+        const clusters = urlProducer(facet.value);
+        clusters.forEach(cluster => {
+          if (!map.has(cluster)) {
+            map.set(cluster, 0);
+          }
+          map.set(cluster, map.get(cluster) + 1);
         });
-        return clusterMap;
+        return map;
+      }, new Map());
+
+      // Find the most occurring cluster
+      let mostOccurringCluster = null;
+      let maxCount = 0;
+
+      for (const [cluster, count] of clusterMap.entries()) {
+        if (count > maxCount) {
+            maxCount = count;
+            mostOccurringCluster = cluster;
+        }
+      }
+
+      // Calculate the total number of URLs in the superset cluster
+      const totalUrlsInSupersetCluster = Math.floor(facetValues.length + clustercount);
+      return { clusterMap, mostOccurringCluster, totalUrlsInSupersetCluster };
     };
 
-    const clusterMap = createClusterMap(facetValues);
-    const sortedClusters = Object.entries(clusterMap)
-        .sort((a, b) => b[1].length - a[1].length)
+    const { clusterMap, mostOccurringCluster, totalUrlsInSupersetCluster } = createClusterMap();
+    const sortedClusters = [...clusterMap.entries()]
+        .sort((a, b) => b[1] - a[1])
         .slice(0, clustercount)
         .map(([cluster]) => cluster);
 
     this.addFacet(facetName, (bundle) => {
         const facetMatch = facetValues.find(f => f.entries.some(e => e.id === bundle.id));
-        if (!facetMatch) {
-            return [];
-        }
-        const clusters = producer(facetMatch.value);
-        return clusters.filter(cluster => sortedClusters.includes(cluster));
+        const clusters = urlProducer(facetMatch.value);
+        return { facetMatch, ...clusters.filter(cluster => sortedClusters.includes(cluster)) };
     });
   }
 
