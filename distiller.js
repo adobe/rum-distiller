@@ -436,7 +436,7 @@ export class DataChunks {
     this.addFacet(facetName, (bundle) => {
         const facetMatch = facetValues.find(f => f.entries.some(e => e.id === bundle.id));
         const clusters = urlProducer(facetMatch.value);
-        return { facetMatch, ...clusters.filter(cluster => sortedClusters.includes(cluster)) };
+        return [ facetMatch, ...clusters.filter(cluster => sortedClusters.includes(cluster)) ];
     });
   }
 
