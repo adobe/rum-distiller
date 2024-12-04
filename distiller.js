@@ -412,11 +412,7 @@ export class DataChunks {
       }, new Map());
 
       // Find the most occurring cluster
-      let mostOccurringCluster = null;
-      const sortedClusters = [...clusterMap.entries()].sort((a, b) => b[1] - a[1]);
-      if (sortedClusters.length > 0) {
-        mostOccurringCluster = sortedClusters[0];
-      }
+      const [mostOccurringCluster] = [...clusterMap.entries()].sort((a, b) => b[1] - a[1]);
 
       // Calculate the total number of items in the superset cluster
       const totalItemsInSupersetCluster = Math.floor(facetValues.length + clustercount);
