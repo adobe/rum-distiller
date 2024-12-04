@@ -13,6 +13,7 @@
  * This module is another service worker, which will handle the number crunching, i.e.
  * filtering, aggregating, and summarizing the data.
  */
+import { producer } from "./utils.js";
 /* eslint-disable max-classes-per-file */
 /**
  * @typedef {Object} RawEvent - a raw RUM event
@@ -380,6 +381,55 @@ export class DataChunks {
       return bucket !== -1
         ? `<${formatter.format(buckets[bucket])}`
         : `>=${formatter.format(buckets[bucketcount - 1])}`;
+    });
+  }
+
+  /**
+   * Adds a cluster facet, derived from an existing facet. This facet
+   * will group the data into clusters based on the URL paths.
+   * You can specify the number of clusters and a producer function to
+   * generate the clusters.
+   * @param {string} facetName name of your new facet
+   * @param {string} baseFacet name of the base facet, from which to derive the clusters
+   * @param {object} clusterOptions options
+   * @param {number} clusterOptions.count number of clusters, The default value is log10(nValues)
+   * @param {function} clusterOptions.producer function that takes the cluster value and returns all possible cluster values
+   */
+  addClusterFacet(facetName, baseFacet, { count: clustercount = Math.floor(Math.log10(this.facets[baseFacet].length)),
+  producer: urlProducer }) {
+    const facetValues = this.facets[baseFacet];
+
+    const createClusterMap = () => {
+      const clusterMap = facetValues.reduce((map, facet) => {
+        const clusters = producer(facet.value);
+        clusters.forEach(cluster => {
+          if (!map.has(cluster)) {
+            map.set(cluster, 0);
+          }
+          map.set(cluster, map.get(cluster) + 1);
+        });
+        return map;
+      }, new Map());
+
+      // Find the most occurring cluster
+      const [mostOccurringCluster] = [...clusterMap.entries()].sort((a, b) => b[1] - a[1]).map(([cluster]) => cluster);
+
+      // Calculate the total number of items in the superset cluster
+      const totalItemsInSupersetCluster = Math.floor(facetValues.length + clustercount);
+
+      return { clusterMap, mostOccurringCluster, totalItemsInSupersetCluster };
+    };
+
+    const { clusterMap, mostOccurringCluster, totalItemsInSupersetCluster } = createClusterMap();
+    const sortedClusters = [...clusterMap.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, clustercount)
+        .map(([cluster]) => cluster);
+
+    this.addFacet(facetName, (bundle) => {
+        const facetMatch = facetValues.find(f => f.entries.some(e => e.id === bundle.id));
+        const clusters = producer(facetMatch.value);
+        return [ facetMatch, ...clusters.filter(cluster => sortedClusters.includes(cluster)) ];
     });
   }
 

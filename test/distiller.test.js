@@ -17,6 +17,10 @@ import { DataChunks } from '../distiller.js';
 import { addCalculatedProps } from '../utils.js';
 import { zTestTwoProportions } from '../stats.js';
 
+// Load fixture data
+const fixturePath = new URL('cruncher.fixture.json', import.meta.url);
+const chunks = JSON.parse(readFileSync(fixturePath));
+
 describe('cruncher.js helper functions', () => {
   it('addCalculatedProps()', () => {
     const bundle = {
@@ -816,6 +820,7 @@ describe('DataChunks', () => {
     assert.equal(d.filtered.length, 1);
   });
 });
+
 describe('DataChunks.hasConversion', () => {
   const chunks = [
     {
@@ -919,5 +924,77 @@ describe('DataChunks.hasConversion', () => {
     assert.equal(converted, undefined);
     const notConverted = facets.find((f) => f.value === 'not-converted');
     assert.equal(notConverted?.count, 3);
+  });
+});
+
+describe('DataChunks.addClusterFacet()', () => {
+  it('should create clusters based on URL facet', () => {
+    const d = new DataChunks();
+    d.load(chunks);
+
+    // Define a facet function
+    d.addFacet('url', (bundle) => [bundle.url]);
+
+    // Add a cluster facet based on the 'url' facet
+    d.addClusterFacet('urlCluster', 'url', {
+        count: Math.log10(d.facets.url.length),
+    });
+
+    const { facets } = d;
+
+    assert.ok(facets.urlCluster.length > 0);
+  });
+
+  it('should handle empty facet values gracefully', () => {
+    const d = new DataChunks();
+    d.load([]);
+
+    // Define a facet function
+    d.addFacet('url', (bundle) => [bundle.url]);
+
+    // Add a cluster facet based on the 'url' facet
+    d.addClusterFacet('urlCluster', 'url', {
+        count: Math.log10(d.facets.url.length),
+    });
+
+    const { facets } = d;
+
+    assert.equal(facets.urlCluster.length, 0);
+  });
+
+  it('should log the correct cluster count', () => {
+    const d = new DataChunks();
+    d.load(chunks);
+
+    // Define a facet function
+    d.addFacet('url', (bundle) => [bundle.url]);
+
+    // Add a cluster facet based on the 'url' facet
+    const count = Math.floor(Math.log10(92));
+    d.addClusterFacet('urlCluster', 'url', {
+        count,
+    });
+
+    // Check if the count is correct
+    assert.strictEqual(count, 1);
+  });
+
+  it('should create clusters with the most occurring cluster first', () => {
+    const d = new DataChunks();
+    d.load(chunks);
+
+    // Define a facet function
+    d.addFacet('url', (bundle) => [bundle.url]);
+
+    // Add a cluster facet based on the 'url' facet
+    d.addClusterFacet('urlCluster', 'url', {
+        count: Math.log10(d.facets.url.length),
+    });
+
+    const { facets } = d;
+
+    // Check if the most occurring cluster is first
+    const mostOccurringCluster = facets.urlCluster[0];
+    assert.ok(mostOccurringCluster.value, '/developer');
   });
 });
