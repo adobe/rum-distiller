@@ -1,3 +1,16 @@
+# [1.12.0](https://github.com/adobe/rum-distiller/compare/v1.11.1...v1.12.0) (2024-12-04)
+
+
+### Bug Fixes
+
+* drop the url count from mostOccurringCluster ([c617025](https://github.com/adobe/rum-distiller/commit/c617025ff6fc72a3f58c18c7a2cc90a98b4e872d))
+
+
+### Features
+
+* addClusterFacet ([1302861](https://github.com/adobe/rum-distiller/commit/1302861b0de747bb4192af8094582d22f6ca2ec5))
+* test coverage for addClusterFacet ([f09ff07](https://github.com/adobe/rum-distiller/commit/f09ff07c3cea6e6c0efeb281fcba50b802f9155c))
+
 ## [1.11.1](https://github.com/adobe/rum-distiller/compare/v1.11.0...v1.11.1) (2024-11-27)
 
 
