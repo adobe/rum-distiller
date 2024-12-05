@@ -159,13 +159,14 @@ export const facets = {
     .map((evt) => evt.source)
     .filter((source) => source)
     .map((source) => {
-      const referrerClass = classifyReferrer(source);
+      const normalizedSource = source.replace(/\#$/, '');
+      const referrerClass = classifyReferrer(normalizedSource);
       return referrerClass ? [
-        source,
+        normalizedSource,
         `${referrerClass.type}:${referrerClass.vendor}`,
         referrerClass.type,
         `*:${referrerClass.vendor}`,
-      ] : source;
+      ] : normalizedSource;
     })
     .flat(),
   /**
