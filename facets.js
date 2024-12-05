@@ -154,21 +154,26 @@ export const facets = {
    * - the type of the referrer, e.g. `search`
    * - the vendor of the referrer, regardless of type, e.g. `*:google`
    */
-  enterSource: (bundle) => bundle.events
-    .filter((evt) => evt.checkpoint === 'enter')
-    .map((evt) => evt.source)
-    .filter((source) => source)
-    .map((source) => {
-      const normalizedSource = source.replace(/\#$/, '');
-      const referrerClass = classifyReferrer(normalizedSource);
-      return referrerClass ? [
-        normalizedSource,
-        `${referrerClass.type}:${referrerClass.vendor}`,
-        referrerClass.type,
-        `*:${referrerClass.vendor}`,
-      ] : normalizedSource;
-    })
-    .flat(),
+  enterSource: (bundle) => {
+    const normalizedSources = bundle.events
+      .filter((evt) => evt.checkpoint === 'enter')
+      .map((evt) => evt.source)
+      .filter((source) => source)
+      .map((source) => {
+        const normalizedSource = source.replace(/\/#$/, '');
+        const referrerClass = classifyReferrer(normalizedSource);
+        return referrerClass ? [
+          normalizedSource,
+          `${referrerClass.type}:${referrerClass.vendor}`,
+          referrerClass.type,
+          `*:${referrerClass.vendor}`,
+        ] : normalizedSource;
+      })
+      .flat();
+    
+    const uniqueSources = new Set(normalizedSources);
+    return uniqueSources;
+  },
   /**
    * Extracts the target of the media view event from the bundle. This
    * is typically the URL of an image or video, and the URL is stripped
@@ -193,7 +198,7 @@ export const facets = {
       }
       return u.toString();
     }),
-};
+  };
 
 /**
  * A facet function takes a bundle and returns an array of facet values.
