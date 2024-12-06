@@ -158,6 +158,7 @@ export const facets = {
     .filter((evt) => evt.checkpoint === 'enter')
     .map((evt) => evt.source)
     .filter((source) => source)
+    .map((source) => source.replace(/\/#$/, ''))
     .map((source) => {
       const referrerClass = classifyReferrer(source);
       return referrerClass ? [
@@ -192,7 +193,7 @@ export const facets = {
       }
       return u.toString();
     }),
-};
+  };
 
 /**
  * A facet function takes a bundle and returns an array of facet values.

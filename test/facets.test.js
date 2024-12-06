@@ -216,6 +216,11 @@ describe('facets:enterSource', () => {
     assert.deepEqual(facets.enterSource({ events: [{ checkpoint: 'enter', source: 'https://www.google.com' }] }), ['https://www.google.com', 'search:google', 'search', '*:google']);
   });
 
+  it('enterSource:normalizeUrl', () => {
+    assert.deepEqual(facets.enterSource({ events: [{ checkpoint: 'enter', source: 'https://www.example.com/#' }] }), ['https://www.example.com']);
+    assert.deepEqual(facets.enterSource({ events: [{ checkpoint: 'enter', source: 'https://www.google.com/#' }] }), ['https://www.google.com', 'search:google', 'search', '*:google']);
+  });
+
   it('enterSource:DataChunks', () => {
     const d = new DataChunks();
     d.load(testChunks);
