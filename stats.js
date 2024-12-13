@@ -215,12 +215,15 @@ export function roundToConfidenceInterval(
   // e.g. 3.14 and 3.16 have 2 significant digits in common
   const maxStr = max.toPrecision(`${max}`.length);
   const minStr = min.toPrecision(`${min}`.length);
-  const common = Math.min(maxStr.split('').reduce((acc, digit, i) => {
-    if (digit === minStr[i]) {
-      return acc + 1;
-    }
-    return acc;
-  }, 0), Number.isNaN(maxPrecision) ? Infinity : maxPrecision);
+  const common = Math.min(
+    maxStr.length > 0 ? [...maxStr].reduce((acc, digit, i) => {
+      if (digit === minStr[i]) {
+        return acc + 1;
+      }
+      return acc;
+    }, 0) : 0,
+    Number.isNaN(maxPrecision) ? Infinity : maxPrecision,
+  );
   const precision = Math.max(
     Math.min(2, Number.isNaN(maxPrecision) ? Infinity : maxPrecision),
     common,
