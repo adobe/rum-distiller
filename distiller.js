@@ -9,12 +9,13 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
+/* eslint-disable max-classes-per-file */
 /*
+ * @module distiller
  * This module is another service worker, which will handle the number crunching, i.e.
  * filtering, aggregating, and summarizing the data.
  */
-import { producer } from './utils.js';
-/* eslint-disable max-classes-per-file */
+import { urlProducer } from './utils.js';
 /**
  * @typedef {Object} RawEvent - a raw RUM event
  * @property {string} checkpoint - the name of the event that happened
@@ -393,11 +394,12 @@ export class DataChunks {
    * @param {string} baseFacet name of the base facet, from which to derive the clusters
    * @param {object} clusterOptions options
    * @param {number} clusterOptions.count number of clusters, The default value is log10(nValues)
-   * @param {function} clusterOptions.producer function that takes the cluster value and returns all possible cluster values
+   * @param {function} clusterOptions.producer function that takes the cluster value and returns
+   * all possible cluster values
    */
   addClusterFacet(facetName, baseFacet, {
     count: clustercount = Math.floor(Math.log10(this.facets[baseFacet].length)),
-    producer: urlProducer,
+    producer = urlProducer,
   }) {
     const facetValues = this.facets[baseFacet];
 
@@ -414,7 +416,9 @@ export class DataChunks {
       }, new Map());
 
       // Find the most occurring cluster
-      const [mostOccurringCluster] = [...clusterMap.entries()].sort((a, b) => b[1] - a[1]).map(([cluster]) => cluster);
+      const [mostOccurringCluster] = [...clusterMap.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([cluster]) => cluster);
 
       // Calculate the total number of items in the superset cluster
       const totalItemsInSupersetCluster = Math.floor(facetValues.length + clustercount);
@@ -422,7 +426,7 @@ export class DataChunks {
       return { clusterMap, mostOccurringCluster, totalItemsInSupersetCluster };
     };
 
-    const { clusterMap, mostOccurringCluster, totalItemsInSupersetCluster } = createClusterMap();
+    const { clusterMap } = createClusterMap();
     const sortedClusters = [...clusterMap.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, clustercount)
