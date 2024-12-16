@@ -1,3 +1,11 @@
+## [1.13.1](https://github.com/adobe/rum-distiller/compare/v1.13.0...v1.13.1) (2024-12-16)
+
+
+### Bug Fixes
+
+* **distiller:** harden aggregates against call stack size overflow ([978ef12](https://github.com/adobe/rum-distiller/commit/978ef1297c364ede71b1ff89c23def3c790b936d))
+* **stats:** avoid overflow in confidence interval calculation ([0f73c9a](https://github.com/adobe/rum-distiller/commit/0f73c9aa683cbf3a25eab943b5bd2b51ffa9930f))
+
 # [1.13.0](https://github.com/adobe/rum-distiller/compare/v1.12.0...v1.13.0) (2024-12-06)
 
 
