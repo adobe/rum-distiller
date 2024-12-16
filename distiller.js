@@ -9,12 +9,13 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
+/* eslint-disable max-classes-per-file */
 /*
+ * @module distiller
  * This module is another service worker, which will handle the number crunching, i.e.
  * filtering, aggregating, and summarizing the data.
  */
-import { producer } from "./utils.js";
-/* eslint-disable max-classes-per-file */
+import { urlProducer } from './utils.js';
 /**
  * @typedef {Object} RawEvent - a raw RUM event
  * @property {string} checkpoint - the name of the event that happened
@@ -105,11 +106,11 @@ class Aggregate {
   }
 
   get min() {
-    return Math.min(...this.values);
+    return this.values.reduce((min, val) => Math.min(min, val), Infinity);
   }
 
   get max() {
-    return Math.max(...this.values);
+    return this.values.reduce((max, val) => Math.max(max, val), -Infinity);
   }
 
   get share() {
@@ -393,16 +394,19 @@ export class DataChunks {
    * @param {string} baseFacet name of the base facet, from which to derive the clusters
    * @param {object} clusterOptions options
    * @param {number} clusterOptions.count number of clusters, The default value is log10(nValues)
-   * @param {function} clusterOptions.producer function that takes the cluster value and returns all possible cluster values
+   * @param {function} clusterOptions.producer function that takes the cluster value and returns
+   * all possible cluster values
    */
-  addClusterFacet(facetName, baseFacet, { count: clustercount = Math.floor(Math.log10(this.facets[baseFacet].length)),
-  producer: urlProducer }) {
+  addClusterFacet(facetName, baseFacet, {
+    count: clustercount = Math.floor(Math.log10(this.facets[baseFacet].length)),
+    producer = urlProducer,
+  }) {
     const facetValues = this.facets[baseFacet];
 
     const createClusterMap = () => {
       const clusterMap = facetValues.reduce((map, facet) => {
         const clusters = producer(facet.value);
-        clusters.forEach(cluster => {
+        clusters.forEach((cluster) => {
           if (!map.has(cluster)) {
             map.set(cluster, 0);
           }
@@ -412,7 +416,9 @@ export class DataChunks {
       }, new Map());
 
       // Find the most occurring cluster
-      const [mostOccurringCluster] = [...clusterMap.entries()].sort((a, b) => b[1] - a[1]).map(([cluster]) => cluster);
+      const [mostOccurringCluster] = [...clusterMap.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([cluster]) => cluster);
 
       // Calculate the total number of items in the superset cluster
       const totalItemsInSupersetCluster = Math.floor(facetValues.length + clustercount);
@@ -420,16 +426,16 @@ export class DataChunks {
       return { clusterMap, mostOccurringCluster, totalItemsInSupersetCluster };
     };
 
-    const { clusterMap, mostOccurringCluster, totalItemsInSupersetCluster } = createClusterMap();
+    const { clusterMap } = createClusterMap();
     const sortedClusters = [...clusterMap.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, clustercount)
-        .map(([cluster]) => cluster);
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, clustercount)
+      .map(([cluster]) => cluster);
 
     this.addFacet(facetName, (bundle) => {
-        const facetMatch = facetValues.find(f => f.entries.some(e => e.id === bundle.id));
-        const clusters = producer(facetMatch.value);
-        return [ facetMatch, ...clusters.filter(cluster => sortedClusters.includes(cluster)) ];
+      const facetMatch = facetValues.find((f) => f.entries.some((e) => e.id === bundle.id));
+      const clusters = producer(facetMatch.value);
+      return [facetMatch, ...clusters.filter((cluster) => sortedClusters.includes(cluster))];
     });
   }
 

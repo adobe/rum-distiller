@@ -237,7 +237,7 @@ export function addCalculatedProps(bundle) {
   return bundle;
 }
 
-export function producer(url) {
+export function urlProducer(url) {
   const path = new URL(url).pathname;
   return path
     .split('/')
@@ -246,10 +246,10 @@ export function producer(url) {
       ...acc,
       [
         ...acc.length ? [acc[acc.length - 1].split('/').slice(1)] : [],
-        part
+        part,
       ]
         .flat()
         .join('/')
-        .padStart(part.length + 1, '/')
+        .padStart(part.length + 1, '/'),
     ], []);
 }

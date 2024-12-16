@@ -193,7 +193,7 @@ export const facets = {
       }
       return u.toString();
     }),
-  };
+};
 
 /**
  * A facet function takes a bundle and returns an array of facet values.
