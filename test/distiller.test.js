@@ -449,6 +449,8 @@ describe('DataChunks', () => {
     assert.equal(totals.toptime.mean, 150);
     assert.equal(totals.clickcount.sum, 1);
     assert.equal(totals.clickcount.mean, 0.5);
+    assert.equal(totals.clickcount.min, 0);
+    assert.equal(totals.clickcount.max, 1);
   });
 
   it('DataChunk.aggregate()', () => {
@@ -822,7 +824,7 @@ describe('DataChunks', () => {
 });
 
 describe('DataChunks.hasConversion', () => {
-  const chunks = [
+  const testChunks = [
     {
       date: '2024-05-06',
       rumBundles: [
@@ -887,7 +889,7 @@ describe('DataChunks.hasConversion', () => {
 
   it('will tag bundles with convert and not-convert based on a filter spec', () => {
     const d = new DataChunks();
-    d.load(chunks);
+    d.load(testChunks);
 
     const spec = {
       facetOne: ['top'],
@@ -906,7 +908,7 @@ describe('DataChunks.hasConversion', () => {
 
   it('unknown facet in filter spec', () => {
     const d = new DataChunks();
-    d.load(chunks);
+    d.load(testChunks);
 
     const spec = {
       facetOne: ['top'],
@@ -937,7 +939,7 @@ describe('DataChunks.addClusterFacet()', () => {
 
     // Add a cluster facet based on the 'url' facet
     d.addClusterFacet('urlCluster', 'url', {
-        count: Math.log10(d.facets.url.length),
+      count: Math.log10(d.facets.url.length),
     });
 
     const { facets } = d;
@@ -954,7 +956,7 @@ describe('DataChunks.addClusterFacet()', () => {
 
     // Add a cluster facet based on the 'url' facet
     d.addClusterFacet('urlCluster', 'url', {
-        count: Math.log10(d.facets.url.length),
+      count: Math.log10(d.facets.url.length),
     });
 
     const { facets } = d;
@@ -972,7 +974,7 @@ describe('DataChunks.addClusterFacet()', () => {
     // Add a cluster facet based on the 'url' facet
     const count = Math.floor(Math.log10(92));
     d.addClusterFacet('urlCluster', 'url', {
-        count,
+      count,
     });
 
     // Check if the count is correct
@@ -988,7 +990,7 @@ describe('DataChunks.addClusterFacet()', () => {
 
     // Add a cluster facet based on the 'url' facet
     d.addClusterFacet('urlCluster', 'url', {
-        count: Math.log10(d.facets.url.length),
+      count: Math.log10(d.facets.url.length),
     });
 
     const { facets } = d;
