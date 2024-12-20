@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/adobe/rum-distiller/compare/v1.13.1...v1.14.0) (2024-12-20)
+
+
+### Features
+
+* add cassie consent widget to the list ([29279e1](https://github.com/adobe/rum-distiller/commit/29279e117e57ad5fb2460a12fa00709f3235cc65))
+
 ## [1.13.1](https://github.com/adobe/rum-distiller/compare/v1.13.0...v1.13.1) (2024-12-16)
 
 
