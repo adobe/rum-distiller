@@ -31,6 +31,12 @@ describe('classifyConsent', () => {
     assert.strictEqual(consent.target, 'accept');
   });
 
+  it('should correctly identify the target action for Cassie consent forms', () => {
+    const cssSelector = '#cassie-accept-all-pre-banner';
+    const consent = classifyConsent(cssSelector);
+    assert.strictEqual(consent.target, 'accept');
+  });
+
   it('should return undefined for a vendor without specific actions', () => {
     const cssSelector = '#usercentrics-root';
     const consent = classifyConsent(cssSelector);
