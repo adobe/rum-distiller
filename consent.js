@@ -41,6 +41,12 @@ const vendors = [
     accept: /AllowAll/,
     reject: /Decline/,
   },
+  {
+    vendor: 'cassie',
+    match: /#cassie/,
+    accept: /accept/,
+    reject: /reject/,
+  },
 ];
 
 class Consent {
