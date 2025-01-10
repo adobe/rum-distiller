@@ -1,3 +1,10 @@
+# [1.15.0](https://github.com/adobe/rum-distiller/compare/v1.14.0...v1.15.0) (2025-01-10)
+
+
+### Features
+
+* optimized way to normalize # in URLs for referrer classification ([b250bc4](https://github.com/adobe/rum-distiller/commit/b250bc433128ccd9d2ed6dee0da1c89dd2dd4d7e))
+
 # [1.14.0](https://github.com/adobe/rum-distiller/compare/v1.13.1...v1.14.0) (2024-12-20)
 
 
