@@ -158,7 +158,18 @@ export const facets = {
     .filter((evt) => evt.checkpoint === 'enter')
     .map((evt) => evt.source)
     .filter((source) => source)
-    .map((source) => source.replace(/\/#$/, ''))
+    .map((source) => {
+      try {
+        const url = new URL(source);
+        url.hash = ''; // Remove the hash
+        return url.href;
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(`Invalid URL: ${source}`);
+        return null;
+      }
+    })
+    .filter((source) => source)
     .map((source) => {
       const referrerClass = classifyReferrer(source);
       return referrerClass ? [
@@ -169,6 +180,7 @@ export const facets = {
       ] : source;
     })
     .flat(),
+
   /**
    * Extracts the target of the media view event from the bundle. This
    * is typically the URL of an image or video, and the URL is stripped
