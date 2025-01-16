@@ -43,3 +43,35 @@ describe('classifyConsent', () => {
     assert.strictEqual(consent.target, undefined);
   });
 });
+
+describe('Tealium/Didomi consent', () => {
+  it('should identify accept action', () => {
+    const consent = classifyConsent('#didomi-notice-agree-button');
+    assert.strictEqual(consent.vendor, 'tealium');
+    assert.strictEqual(consent.target, 'accept');
+  });
+
+  it('should identify reject action', () => {
+    const consent = classifyConsent('#didomi-notice-disagree-button');
+    assert.strictEqual(consent.vendor, 'tealium');
+    assert.strictEqual(consent.target, 'reject');
+  });
+
+  it('should identify dismiss action for close button', () => {
+    const consent = classifyConsent('#didomi-popup-closeBtn-icon');
+    assert.strictEqual(consent.vendor, 'tealium');
+    assert.strictEqual(consent.target, 'dismiss');
+  });
+
+  it('should identify dismiss action for popup close link', () => {
+    const consent = classifyConsent('#didomi-host .didomi-popup-close');
+    assert.strictEqual(consent.vendor, 'tealium');
+    assert.strictEqual(consent.target, 'dismiss');
+  });
+
+  it('should identify dismiss action for continue without agreeing', () => {
+    const consent = classifyConsent('#didomi-host .didomi-continue-without-agreeing');
+    assert.strictEqual(consent.vendor, 'tealium');
+    assert.strictEqual(consent.target, 'dismiss');
+  });
+});

@@ -47,6 +47,14 @@ const vendors = [
     accept: /accept/,
     reject: /reject/,
   },
+  // tealium, a.ka. didomi
+  {
+    vendor: 'tealium',
+    match: /#didomi/,
+    accept: /didomi-notice-agree-button$/,
+    reject: /didomi-notice-disagree-button$/,
+    dismiss: /(didomi-popup-closeBtn-icon|didomi-popup-close|didomi-continue-without-agreeing)$/,
+  },
 ];
 
 class Consent {
