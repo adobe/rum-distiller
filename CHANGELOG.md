@@ -1,3 +1,10 @@
+# [1.16.0](https://github.com/adobe/rum-distiller/compare/v1.15.0...v1.16.0) (2025-01-16)
+
+
+### Features
+
+* **consent:** support tealium consent manager ([de1dd42](https://github.com/adobe/rum-distiller/commit/de1dd428c9d7e3869cada4ab3ab309ae5cb5c9a7)), closes [#39](https://github.com/adobe/rum-distiller/issues/39)
+
 # [1.15.0](https://github.com/adobe/rum-distiller/compare/v1.14.0...v1.15.0) (2025-01-10)
 
 
