@@ -945,6 +945,10 @@ describe('DataChunks.addClusterFacet()', () => {
     const { facets } = d;
 
     assert.ok(facets.urlCluster.length > 0);
+    assert.notEqual(facets.urlCluster[0].value, '[object Object]');
+    assert.equal(facets.urlCluster[0].value, '/developer');
+    assert.equal(facets.urlCluster[1].value, 'https://www.aem.live/home');
+    assert.equal(facets.urlCluster[2].value, 'https://www.aem.live/developer/tutorial');
   });
 
   it('should handle empty facet values gracefully', () => {
