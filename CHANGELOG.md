@@ -1,3 +1,10 @@
+## [1.16.1](https://github.com/adobe/rum-distiller/compare/v1.16.0...v1.16.1) (2025-01-20)
+
+
+### Bug Fixes
+
+* **distiller:** return unclustered facet value in addition to clustered facet value ([fcaab3a](https://github.com/adobe/rum-distiller/commit/fcaab3adffd701c10dc71e4ddb69829161180686))
+
 # [1.16.0](https://github.com/adobe/rum-distiller/compare/v1.15.0...v1.16.0) (2025-01-16)
 
 
