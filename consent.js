@@ -43,7 +43,7 @@ const vendors = [
   },
   {
     vendor: 'cassie',
-    match: /#cassie/,
+    match: /button#cassie/,
     accept: /accept/,
     reject: /reject/,
   },
