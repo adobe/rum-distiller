@@ -400,7 +400,7 @@ export class DataChunks {
   addClusterFacet(facetName, baseFacet, {
     count: clustercount = Math.floor(Math.log10(this.facets[baseFacet].length)),
     producer = urlProducer,
-  }) {
+  }, facetCombiner = 'some', negativeCombiner = undefined) {
     const facetValues = this.facets[baseFacet];
 
     const createClusterMap = () => {
@@ -434,9 +434,9 @@ export class DataChunks {
 
     this.addFacet(facetName, (bundle) => {
       const facetMatch = facetValues.find((f) => f.entries.some((e) => e.id === bundle.id));
-      const clusters = producer(facetMatch.value);
+      const clusters = (facetMatch && producer(facetMatch.value)) || [];
       return [facetMatch.value, ...clusters.filter((cluster) => sortedClusters.includes(cluster))];
-    });
+    }, facetCombiner, negativeCombiner);
   }
 
   /**
