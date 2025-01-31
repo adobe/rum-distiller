@@ -165,7 +165,7 @@ export const facets = {
         return url.href;
       } catch (e) {
         // eslint-disable-next-line no-console
-        console.error(`Invalid URL: ${source}`);
+        // console.error(`Invalid URL: ${source}`);
         return null;
       }
     })

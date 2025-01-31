@@ -935,12 +935,12 @@ describe('DataChunks.addClusterFacet()', () => {
     d.load(chunks);
 
     // Define a facet function
-    d.addFacet('url', (bundle) => [bundle.url]);
+    d.addFacet('url', (bundle) => [bundle.url], 'some', 'never');
 
     // Add a cluster facet based on the 'url' facet
     d.addClusterFacet('urlCluster', 'url', {
       count: Math.log10(d.facets.url.length),
-    });
+    }, 'some', 'never');
 
     const { facets } = d;
 
@@ -951,21 +951,48 @@ describe('DataChunks.addClusterFacet()', () => {
     assert.equal(facets.urlCluster[2].value, 'https://www.aem.live/developer/tutorial');
   });
 
+  it('should handle null facetMatch gracefully', () => {
+    const d = new DataChunks();
+    d.load(chunks);
+
+    // Define a facet function
+    d.addFacet('url', (bundle) => [bundle.url], 'some', 'never');
+
+    // Add a cluster facet based on the 'url' facet
+    d.addClusterFacet('urlCluster', 'url', {
+      count: Math.log10(d.facets.url.length),
+    }, 'some', 'never');
+
+    // Simulate a null facetMatch scenario
+    const facetMatch = null;
+    const producer = (value) => [value, value];
+    const clusters = (facetMatch && producer(facetMatch.value)) || [];
+
+    assert.deepEqual(clusters, []);
+  });
+
   it('should handle empty facet values gracefully', () => {
     const d = new DataChunks();
     d.load([]);
 
     // Define a facet function
-    d.addFacet('url', (bundle) => [bundle.url]);
+    d.addFacet('url', (bundle) => [bundle.url], 'some', 'never');
 
     // Add a cluster facet based on the 'url' facet
     d.addClusterFacet('urlCluster', 'url', {
       count: Math.log10(d.facets.url.length),
-    });
+    }, 'some', 'never');
 
     const { facets } = d;
 
     assert.equal(facets.urlCluster.length, 0);
+
+    // Simulate an empty facetMatch scenario
+    const facetMatch = {};
+    const producer = (value) => [value, value];
+    const clusters = (facetMatch && producer(facetMatch.value)) || [];
+
+    assert.deepEqual(clusters, [undefined, undefined]);
   });
 
   it('should log the correct cluster count', () => {
@@ -973,13 +1000,13 @@ describe('DataChunks.addClusterFacet()', () => {
     d.load(chunks);
 
     // Define a facet function
-    d.addFacet('url', (bundle) => [bundle.url]);
+    d.addFacet('url', (bundle) => [bundle.url], 'some', 'never');
 
     // Add a cluster facet based on the 'url' facet
     const count = Math.floor(Math.log10(92));
     d.addClusterFacet('urlCluster', 'url', {
       count,
-    });
+    }, 'some', 'never');
 
     // Check if the count is correct
     assert.strictEqual(count, 1);
@@ -990,12 +1017,12 @@ describe('DataChunks.addClusterFacet()', () => {
     d.load(chunks);
 
     // Define a facet function
-    d.addFacet('url', (bundle) => [bundle.url]);
+    d.addFacet('url', (bundle) => [bundle.url], 'some', 'never');
 
     // Add a cluster facet based on the 'url' facet
     d.addClusterFacet('urlCluster', 'url', {
       count: Math.log10(d.facets.url.length),
-    });
+    }, 'some', 'never');
 
     const { facets } = d;
 
