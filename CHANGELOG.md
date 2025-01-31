@@ -1,3 +1,10 @@
+## [1.16.2](https://github.com/adobe/rum-distiller/compare/v1.16.1...v1.16.2) (2025-01-31)
+
+
+### Bug Fixes
+
+* trigger release ([c336a48](https://github.com/adobe/rum-distiller/commit/c336a48df5375eccc9e88224b10c3fa35ce3c5da))
+
 ## [1.16.1](https://github.com/adobe/rum-distiller/compare/v1.16.0...v1.16.1) (2025-01-20)
 
 
