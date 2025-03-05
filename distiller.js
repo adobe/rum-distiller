@@ -257,6 +257,7 @@ export class DataChunks {
   }
 
   resetFacets() {
+    this.filters = {};
     this.facetFns = {};
     this.facetCombiners = {};
   }
