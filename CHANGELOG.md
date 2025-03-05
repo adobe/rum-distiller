@@ -1,3 +1,10 @@
+## [1.16.3](https://github.com/adobe/rum-distiller/compare/v1.16.2...v1.16.3) (2025-03-05)
+
+
+### Bug Fixes
+
+* reset filters during facet reset ([f7cb147](https://github.com/adobe/rum-distiller/commit/f7cb147362075d68c18b37ae7055935a4a25f9ff))
+
 ## [1.16.2](https://github.com/adobe/rum-distiller/compare/v1.16.1...v1.16.2) (2025-01-31)
 
 
