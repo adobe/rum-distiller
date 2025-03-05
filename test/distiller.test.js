@@ -929,6 +929,42 @@ describe('DataChunks.hasConversion', () => {
   });
 });
 
+describe('DataChunks.addHistogramFacet()', () => {
+  it('should create a histogram facet based on a base facet', () => {
+    const d = new DataChunks();
+    d.load(chunks);
+
+    d.addFacet('pathlength', (bundle) => bundle.url.length);
+
+    d.addHistogramFacet('pathlengthHistogram', 'pathlength', {
+      count: 10,
+      min: 0,
+      max: Infinity,
+      steps: 'linear',
+    });
+
+    const { facets } = d;
+
+    assert.equal(facets.pathlength.length, 31);
+    assert.equal(facets.pathlengthHistogram.length, 10);
+
+    // reset the facets and re-define them again
+    d.resetFacets();
+    d.addFacet('pathlength', (bundle) => bundle.url.length);
+    d.addHistogramFacet('pathlengthHistogram', 'pathlength', {
+      count: 10,
+      min: 0,
+      max: Infinity,
+      steps: 'linear',
+    });
+
+    const { facets: facets2 } = d;
+
+    assert.equal(facets2.pathlength.length, 31);
+    assert.equal(facets2.pathlengthHistogram.length, 10);
+  });
+});
+
 describe('DataChunks.addClusterFacet()', () => {
   it('should create clusters based on URL facet', () => {
     const d = new DataChunks();
