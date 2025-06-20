@@ -111,6 +111,8 @@ describe('classifyAcquisition', () => {
     { input: 'ctv', expected: 'paid:video:amazon' },
     { input: 'print', expected: 'owned:print' },
     { input: 'paid social', expected: 'paid:social', only: true },
+    { input: 'chatgpt.com', expected: 'owned:chatgpt' },
+    { input: 'perplexity', expected: 'owned:perplexity' },
   ];
 
   testCases
