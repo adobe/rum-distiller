@@ -37,6 +37,8 @@ const vendorClassifications = [
   { regex: /baidu/i, result: 'baidu' },
   { regex: /amazon|ctv/i, result: 'amazon' },
   { regex: /direct/i, result: 'direct' },
+  { regex: /perplexity/i, result: 'perplexity' },
+  { regex: /chatgpt/i, result: 'chatgpt' },
 ];
 
 /* is the vendor paid or owned */
@@ -46,6 +48,8 @@ const vendorTypeLookup = {
   tiktok: 'paid',
   amazon: 'paid',
   direct: 'earned',
+  chatgpt: 'owned',
+  perplexity: 'owned',
 };
 
 const categoryClassifications = [
@@ -99,6 +103,8 @@ const vendorCategoryLookup = {
   amazon: 'display',
   yandex: 'search',
   baidu: 'search',
+  chatgpt: 'ai',
+  perplexity: 'ai',
   direct: 'direct',
 };
 
