@@ -48,8 +48,9 @@ const vendorTypeLookup = {
   tiktok: 'paid',
   amazon: 'paid',
   direct: 'earned',
-  chatgpt: 'owned',
-  perplexity: 'owned',
+  // AI traffic is earned, not owned
+  chatgpt: 'earned',
+  perplexity: 'earned',
 };
 
 const categoryClassifications = [
