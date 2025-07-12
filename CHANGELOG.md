@@ -1,3 +1,16 @@
+# [1.17.0](https://github.com/adobe/rum-distiller/compare/v1.16.3...v1.17.0) (2025-07-12)
+
+
+### Bug Fixes
+
+* treat AI acquisition as earned ([61b9355](https://github.com/adobe/rum-distiller/commit/61b9355590376e86b1b33f1e5ed8b2bebc75e790))
+
+
+### Features
+
+* adding a failing test case for classification of chatgpt.com and perplexity utm ([3f51db5](https://github.com/adobe/rum-distiller/commit/3f51db5b4a150b69b03c391be8751714714dab82))
+* adding classification for chatgpt and perplexity in traffic acquisition ([597d0c1](https://github.com/adobe/rum-distiller/commit/597d0c13b0866cf0f53d7a6744a55b3ce4b06599))
+
 ## [1.16.3](https://github.com/adobe/rum-distiller/compare/v1.16.2...v1.16.3) (2025-03-05)
 
 
