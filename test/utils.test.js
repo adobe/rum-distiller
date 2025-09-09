@@ -232,9 +232,21 @@ describe('scoreCWV', () => {
 });
 
 describe('urlProducer', () => {
-  it.only('urlProducer works with valid URLs', () => {
+  it('urlProducer extracts path sequences from full URLs', () => {
     const url = 'https://example.com/test/the/path';
     const result = urlProducer(url);
     assert.deepStrictEqual(result, ['/test', '/test/the', '/test/the/path']);
+  });
+
+  it('urlProducer extracts domain sequences from hostnames', () => {
+    const url = 'www.example.com';
+    const result = urlProducer(url);
+    assert.deepStrictEqual(result, ['com', 'example.com', 'www.example.com']);
+  });
+
+  it('urlProducer produces nothing for non-URL-ish strings', () => {
+    const url = 'I am not a URL';
+    const result = urlProducer(url);
+    assert.deepStrictEqual(result, []);
   });
 });

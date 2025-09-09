@@ -237,10 +237,28 @@ export function addCalculatedProps(bundle) {
   return bundle;
 }
 
-export function urlProducer(url) {
-  return new URL(url).pathname
+function pathProducer(path) {
+  return path
     .split('/')
     .filter(Boolean)
     .map((_, i, segments) => segments.slice(0, i + 1))
     .map((segments) => `/${segments.join('/')}`);
+}
+
+function hostProducer(host) {
+  return host
+    .split('.')
+    .reverse()
+    .filter(Boolean)
+    .map((_, i, segments) => segments.slice(0, i + 1))
+    .map((segments) => `${segments.reverse().join('.')}`);
+}
+
+export function urlProducer(url) {
+  if (url.startsWith('https://')) {
+    return pathProducer(new URL(url).pathname);
+  } else if (url.indexOf('.') !== -1) {
+    return hostProducer(url);
+  }
+  return [];
 }
