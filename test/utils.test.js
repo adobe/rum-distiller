@@ -9,18 +9,21 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import {
-  computeConversionRate, isKnownFacet, scoreBundle, reclassifyAcquisition, addCalculatedProps, scoreCWV,
-
+  addCalculatedProps,
+  computeConversionRate, isKnownFacet,
+  reclassifyAcquisition,
+  scoreBundle,
+  scoreCWV,
 } from '../utils.js';
 
 // need to confirm if results are as expected
 describe('reclassifyAcquisition', () => {
   it('should reclassify utm source to acquisition', () => {
     const result = reclassifyAcquisition({ source: 'utm_source', target: 'some_target', checkpoint: 'utm' });
-    assert.deepStrictEqual(result, { source: 'utm_source', target:'some_target', checkpoint: 'utm' });
+    assert.deepStrictEqual(result, { source: 'utm_source', target: 'some_target', checkpoint: 'utm' });
   });
 
   it('should reclassify paid source to acquisition', () => {

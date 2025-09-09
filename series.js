@@ -29,11 +29,8 @@ import { reclassifyAcquisition } from './utils.js';
  */
 export const pageViews = (bundle) => {
   const isBundle = true;
-  const isPrerender = bundle.events.find((evt) =>
-    evt.checkpoint === 'prerender'
-  );
-  const isPrerenderThenNavigate = bundle.events.find((evt) =>
-    evt.checkpoint === 'navigate'
+  const isPrerender = bundle.events.find((evt) => evt.checkpoint === 'prerender');
+  const isPrerenderThenNavigate = bundle.events.find((evt) => evt.checkpoint === 'navigate'
     && evt.target === 'prerendered');
   return isBundle && (!isPrerender || isPrerenderThenNavigate) ? bundle.weight : 0;
 };
