@@ -9,8 +9,8 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
-import classifyConsent from './consent.js';
 import { classifyAcquisition } from './acquisition.js';
+import classifyConsent from './consent.js';
 
 /* helpers */
 
@@ -238,18 +238,9 @@ export function addCalculatedProps(bundle) {
 }
 
 export function urlProducer(url) {
-  const path = new URL(url).pathname;
-  return path
+  return new URL(url).pathname
     .split('/')
     .filter(Boolean)
-    .reduce((acc, part) => [
-      ...acc,
-      [
-        ...acc.length ? [acc[acc.length - 1].split('/').slice(1)] : [],
-        part,
-      ]
-        .flat()
-        .join('/')
-        .padStart(part.length + 1, '/'),
-    ], []);
+    .map((_, i, segments) => segments.slice(0, i + 1))
+    .map((segments) => `/${segments.join('/')}`);
 }

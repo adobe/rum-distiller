@@ -17,6 +17,7 @@ import {
   reclassifyAcquisition,
   scoreBundle,
   scoreCWV,
+  urlProducer,
 } from '../utils.js';
 
 // need to confirm if results are as expected
@@ -227,5 +228,13 @@ describe('scoreCWV', () => {
   it('should return null if value is null', () => {
     const result = scoreCWV(null, 'ttfb');
     assert.strictEqual(result, null);
+  });
+});
+
+describe('urlProducer', () => {
+  it.only('urlProducer works with valid URLs', () => {
+    const url = 'https://example.com/test/the/path';
+    const result = urlProducer(url);
+    assert.deepStrictEqual(result, ['/test', '/test/the', '/test/the/path']);
   });
 });
