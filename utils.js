@@ -237,6 +237,12 @@ export function addCalculatedProps(bundle) {
   return bundle;
 }
 
+/**
+ * Produces all path prefixes from a URL path in descending length order.
+ * Takes a path like "/foo/bar/baz" and returns ["/foo", "/foo/bar", "/foo/bar/baz"].
+ * @param {string} path - The URL path to process
+ * @returns {string[]} Array of path prefixes
+ */
 function pathProducer(path) {
   return path
     .split('/')
@@ -245,6 +251,12 @@ function pathProducer(path) {
     .map((segments) => `/${segments.join('/')}`);
 }
 
+/**
+ * Produces all domain suffixes from a hostname in ascending specificity order.
+ * Takes a hostname like "www.example.com" and returns ["com", "example.com", "www.example.com"].
+ * @param {string} host - The hostname to process
+ * @returns {string[]} Array of domain suffixes
+ */
 function hostProducer(host) {
   return host
     .split('.')
@@ -254,6 +266,14 @@ function hostProducer(host) {
     .map((segments) => `${segments.reverse().join('.')}`);
 }
 
+/**
+ * Produces URL segments for analysis based on input type.
+ * - For full URLs (starting with https://): returns path segments
+ * - For domain-like strings (containing dots): returns domain segments
+ * - For other strings: returns empty array
+ * @param {string} url - URL, hostname, or other string to analyze
+ * @returns {string[]} Array of URL segments for faceting
+ */
 export function urlProducer(url) {
   if (url.startsWith('https://')) {
     return pathProducer(new URL(url).pathname);
