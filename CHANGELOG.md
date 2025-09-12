@@ -1,3 +1,15 @@
+# [1.18.0](https://github.com/adobe/rum-distiller/compare/v1.17.0...v1.18.0) (2025-09-12)
+
+
+### Bug Fixes
+
+* refactor urlProducer to use functional point-free style ([bbc8d07](https://github.com/adobe/rum-distiller/commit/bbc8d079ad94f8cd07cda2765561b55a83efc1ed))
+
+
+### Features
+
+* **utils:** url producer should create path sequences from full URLs and subdomain sequences from hostnames ([744f96a](https://github.com/adobe/rum-distiller/commit/744f96afb2fb33f658cafb74ddf44b776516d12b))
+
 # [1.17.0](https://github.com/adobe/rum-distiller/compare/v1.16.3...v1.17.0) (2025-07-12)
 
 
