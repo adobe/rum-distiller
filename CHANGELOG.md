@@ -1,3 +1,10 @@
+# [1.19.0](https://github.com/adobe/rum-distiller/compare/v1.18.0...v1.19.0) (2025-09-12)
+
+
+### Features
+
+* **utils:** add memoization to pathProducer and hostProducer functions ([3d7a70c](https://github.com/adobe/rum-distiller/commit/3d7a70ce7385e151ed88c324c684b480eaf88ba2))
+
 # [1.18.0](https://github.com/adobe/rum-distiller/compare/v1.17.0...v1.18.0) (2025-09-12)
 
 
