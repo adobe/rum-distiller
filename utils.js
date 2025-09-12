@@ -238,18 +238,34 @@ export function addCalculatedProps(bundle) {
 }
 
 /**
+ * Creates a memoized version of a unary function.
+ * Uses WeakMap for object arguments and Map for primitives.
+ * @param {Function} fn - The function to memoize
+ * @returns {Function} The memoized function
+ */
+const memoize = (fn) => {
+  const cache = new Map();
+  return (arg) => {
+    if (cache.has(arg)) {
+      return cache.get(arg);
+    }
+    const result = fn(arg);
+    cache.set(arg, result);
+    return result;
+  };
+};
+
+/**
  * Produces all path prefixes from a URL path in descending length order.
  * Takes a path like "/foo/bar/baz" and returns ["/foo", "/foo/bar", "/foo/bar/baz"].
  * @param {string} path - The URL path to process
  * @returns {string[]} Array of path prefixes
  */
-function pathProducer(path) {
-  return path
-    .split('/')
-    .filter(Boolean)
-    .map((_, i, segments) => segments.slice(0, i + 1))
-    .map((segments) => `/${segments.join('/')}`);
-}
+const pathProducer = memoize((path) => path
+  .split('/')
+  .filter(Boolean)
+  .map((_, i, segments) => segments.slice(0, i + 1))
+  .map((segments) => `/${segments.join('/')}`));
 
 /**
  * Produces all domain suffixes from a hostname in ascending specificity order.
@@ -257,14 +273,12 @@ function pathProducer(path) {
  * @param {string} host - The hostname to process
  * @returns {string[]} Array of domain suffixes
  */
-function hostProducer(host) {
-  return host
-    .split('.')
-    .reverse()
-    .filter(Boolean)
-    .map((_, i, segments) => segments.slice(0, i + 1))
-    .map((segments) => `${segments.reverse().join('.')}`);
-}
+const hostProducer = memoize((host) => host
+  .split('.')
+  .reverse()
+  .filter(Boolean)
+  .map((_, i, segments) => segments.slice(0, i + 1))
+  .map((segments) => `${segments.reverse().join('.')}`));
 
 /**
  * Produces URL segments for analysis based on input type.
