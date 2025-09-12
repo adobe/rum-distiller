@@ -249,4 +249,33 @@ describe('urlProducer', () => {
     const result = urlProducer(url);
     assert.deepStrictEqual(result, []);
   });
+
+  it('urlProducer uses memoization for repeated calls with same URL', () => {
+    const url = 'https://example.com/test/path';
+    const result1 = urlProducer(url);
+    const result2 = urlProducer(url);
+    assert.strictEqual(result1, result2);
+  });
+
+  it('urlProducer uses memoization for repeated calls with same hostname', () => {
+    const hostname = 'sub.example.com';
+    const result1 = urlProducer(hostname);
+    const result2 = urlProducer(hostname);
+    assert.strictEqual(result1, result2);
+  });
+
+  it('urlProducer memoization returns correct cached results', () => {
+    const url1 = 'https://example.com/path1';
+    const url2 = 'https://example.com/path2';
+    
+    const result1a = urlProducer(url1);
+    const result2a = urlProducer(url2);
+    const result1b = urlProducer(url1);
+    const result2b = urlProducer(url2);
+    
+    assert.strictEqual(result1a, result1b);
+    assert.strictEqual(result2a, result2b);
+    assert.deepStrictEqual(result1a, ['/path1']);
+    assert.deepStrictEqual(result2a, ['/path2']);
+  });
 });
