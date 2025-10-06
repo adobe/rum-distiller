@@ -16,6 +16,27 @@
  * filtering, aggregating, and summarizing the data.
  */
 import { urlProducer } from './utils.js';
+
+// Static lookup tables for filter combiners and negators
+// Hoisted to module level to avoid recreating on every bundle filter iteration
+const COMBINERS = {
+  // if some elements match, then return true (partial inclusion)
+  some: 'some',
+  // if some elements do not match, then return true (partial exclusion)
+  none: 'some',
+  // if every element matches, then return true (full inclusion)
+  every: 'every',
+  // if every element does not match, then return true (full exclusion)
+  never: 'every',
+};
+
+const NEGATORS = {
+  some: (value) => value,
+  every: (value) => value,
+  none: (value) => !value,
+  never: (value) => !value,
+};
+
 /**
  * @typedef {Object} RawEvent - a raw RUM event
  * @property {string} checkpoint - the name of the event that happened
@@ -605,36 +626,23 @@ export class DataChunks {
   // eslint-disable-next-line max-len
   applyFilter(bundles, filterSpec, skipFilterFn, existenceFilterFn, valuesExtractorFn, combinerExtractorFn) {
     try {
+      // Pre-compute combiner/negator pairs for each filter attribute
+      // This avoids recreating lookup tables for every bundle in the hot loop
       const filterBy = Object.entries(filterSpec)
         .filter(skipFilterFn)
         .filter(([, desiredValues]) => desiredValues.length)
-        .filter(existenceFilterFn);
-      return bundles.filter((bundle) => filterBy.every(([attributeName, desiredValues]) => {
+        .filter(existenceFilterFn)
+        .map(([attributeName, desiredValues]) => {
+          const combinerPreference = combinerExtractorFn(attributeName, this);
+          return [
+            attributeName,
+            desiredValues,
+            COMBINERS[combinerPreference],
+            NEGATORS[combinerPreference],
+          ];
+        });
+      return bundles.filter((bundle) => filterBy.every(([attributeName, desiredValues, combiner, negator]) => {
         const actualValues = valuesExtractorFn(attributeName, bundle, this);
-
-        const combiners = {
-          // if some elements match, then return true (partial inclusion)
-          some: 'some',
-          // if some elements do not match, then return true (partial exclusion)
-          none: 'some',
-          // if every element matches, then return true (full inclusion)
-          every: 'every',
-          // if every element does not match, then return true (full exclusion)
-          never: 'every',
-        };
-
-        const negators = {
-          some: (value) => value,
-          every: (value) => value,
-          none: (value) => !value,
-          never: (value) => !value,
-        };
-        // this can be some, every, or none
-        const combinerprefence = combinerExtractorFn(attributeName, this);
-
-        const combiner = combiners[combinerprefence];
-        const negator = negators[combinerprefence];
-
         return desiredValues[combiner]((value) => negator(actualValues.includes(value)));
       }));
     } catch (error) {
