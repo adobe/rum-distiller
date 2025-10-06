@@ -627,7 +627,7 @@ export class DataChunks {
   applyFilter(bundles, filterSpec, skipFilterFn, existenceFilterFn, valuesExtractorFn, combinerExtractorFn) {
     try {
       // Pre-compute combiner/negator pairs for each filter attribute
-      // This avoids recreating lookup tables for every bundle in the hot loop
+      // This avoids recreating the lookup tables for every bundle in the hot loop
       const filterBy = Object.entries(filterSpec)
         .filter(skipFilterFn)
         .filter(([, desiredValues]) => desiredValues.length)
