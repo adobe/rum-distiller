@@ -6,6 +6,12 @@
     "test-ci": "npm run test",
     "lint": "eslint .",
     "docs": "npx jsdoc2md --files '*.js'  > API.md",
+    "benchmark": "node test/benchmarks/index.js",
+    "benchmark:filtering": "node test/benchmarks/filtering.bench.js",
+    "benchmark:facets": "node test/benchmarks/facets.bench.js",
+    "benchmark:grouping": "node test/benchmarks/grouping.bench.js",
+    "benchmark:e2e": "node test/benchmarks/e2e.bench.js",
+    "profile": "node test/benchmarks/profile.js",
     "semantic-release": "semantic-release",
     "semantic-release-dry": "semantic-release --dry-run --branches $CI_BRANCH"
   },
