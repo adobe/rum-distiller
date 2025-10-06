@@ -93,21 +93,63 @@ function aggregateFn(valueFn) {
   };
 }
 
-function groupFn(groupByFn) {
-  return (acc, bundle) => {
+/**
+ * Optimized grouping function using two-pass approach with pre-allocated arrays.
+ * This eliminates the performance cost of dynamic array growth.
+ * @param {Bundle[]} bundles - Array of bundles to group
+ * @param {groupByFn} groupByFn - Function to determine group key(s) for each bundle
+ * @returns {Object<string, Bundle[]>} Grouped bundles
+ */
+function groupBundlesOptimized(bundles, groupByFn) {
+  // Pass 1: Count bundles per group to determine array sizes
+  const counts = {};
+
+  for (let i = 0; i < bundles.length; i += 1) {
+    const bundle = bundles[i];
     const key = groupByFn(bundle);
-    if (!key) return acc;
+    if (!key) continue; // eslint-disable-line no-continue
+
     if (Array.isArray(key)) {
-      key.forEach((k) => {
-        if (!acc[k]) acc[k] = [];
-        acc[k].push(bundle);
-      });
-      return acc;
+      for (let j = 0; j < key.length; j += 1) {
+        const k = key[j];
+        counts[k] = (counts[k] || 0) + 1;
+      }
+    } else {
+      counts[key] = (counts[key] || 0) + 1;
     }
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(bundle);
-    return acc;
-  };
+  }
+
+  // Pass 2: Pre-allocate arrays and fill them
+  const result = {};
+  const indices = {};
+
+  // Pre-allocate all arrays
+  const keys = Object.keys(counts);
+  for (let i = 0; i < keys.length; i += 1) {
+    const k = keys[i];
+    result[k] = new Array(counts[k]);
+    indices[k] = 0;
+  }
+
+  // Fill arrays
+  for (let i = 0; i < bundles.length; i += 1) {
+    const bundle = bundles[i];
+    const key = groupByFn(bundle);
+    if (!key) continue; // eslint-disable-line no-continue
+
+    if (Array.isArray(key)) {
+      for (let j = 0; j < key.length; j += 1) {
+        const k = key[j];
+        result[k][indices[k]] = bundle;
+        indices[k] += 1;
+      }
+    } else {
+      result[key][indices[key]] = bundle;
+      indices[key] += 1;
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -756,7 +798,7 @@ export class DataChunks {
    * and each vaule is an array of bundles
    */
   group(groupByFn) {
-    this.groupedIn = this.filtered.reduce(groupFn(groupByFn), {});
+    this.groupedIn = groupBundlesOptimized(this.filtered, groupByFn);
     if (groupByFn.fillerFn) {
       // fill in the gaps, as sometimes there is no data for a group
       // so we need to add an empty array for that group
@@ -899,16 +941,17 @@ export class DataChunks {
           // so that we can show all values, not just the ones that do not match
           skipped.push(`${facetName}!`);
         }
-        const groupedByFacetIn = this
+        const groupedByFacetIn = groupBundlesOptimized(
           // we filter the bundles by all active filters,
           // except for the current facet (we want to see)
           // all values here.
-          .filterBundles(
+          this.filterBundles(
             this.bundles,
             this.filters,
             skipped,
-          )
-          .reduce(groupFn(facetValueFn), {});
+          ),
+          facetValueFn,
+        );
 
         // eslint-disable-next-line no-param-reassign
         accOuter[facetName] = Object.entries(groupedByFacetIn)
