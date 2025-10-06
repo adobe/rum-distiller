@@ -9,10 +9,19 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
-module.exports = {
-  root: true,
-  extends: '@adobe/helix',
-  env: {
-    browser: true,
+import { recommended } from '@adobe/eslint-config-helix';
+import globals from 'globals';
+
+export default [
+  recommended,
+  {
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
+    },
   },
-};
+  {
+    ignores: ['.vscode/*', 'coverage/*'],
+  },
+];

@@ -267,12 +267,12 @@ describe('urlProducer', () => {
   it('urlProducer memoization returns correct cached results', () => {
     const url1 = 'https://example.com/path1';
     const url2 = 'https://example.com/path2';
-    
+
     const result1a = urlProducer(url1);
     const result2a = urlProducer(url2);
     const result1b = urlProducer(url1);
     const result2b = urlProducer(url2);
-    
+
     assert.strictEqual(result1a, result1b);
     assert.strictEqual(result2a, result2b);
     assert.deepStrictEqual(result1a, ['/path1']);
