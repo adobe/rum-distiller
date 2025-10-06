@@ -750,7 +750,7 @@ export class DataChunks {
    * bundle will be skipped.
    * @param {groupByFn} groupByFn for each object, determine the group key
    * @returns {Object<string, Bundle[]>} grouped data, each key is a group
-   * and each vaule is an array of bundles
+   * and each value is an array of bundles
    */
   group(groupByFn) {
     this.groupedIn = groupBundlesOptimized(this.filtered, groupByFn);
