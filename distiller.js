@@ -459,6 +459,8 @@ export class DataChunks {
     this.facetsIn = {};
     // memoziaton
     this.memo = {};
+    // cache for facet function results: WeakMap<bundle, Map<attributeName, cachedValue>>
+    this.facetValueCache = new WeakMap();
   }
 
   /**
@@ -581,8 +583,22 @@ export class DataChunks {
     };
     const skipFilterFn = ([facetName]) => !skipped.includes(facetName);
     const valuesExtractorFn = (attributeName, bundle, parent) => {
+      // Check cache first
+      let bundleCache = parent.facetValueCache.get(bundle);
+      if (!bundleCache) {
+        bundleCache = new Map();
+        parent.facetValueCache.set(bundle, bundleCache);
+      }
+
+      if (bundleCache.has(attributeName)) {
+        return bundleCache.get(attributeName);
+      }
+
+      // Compute and cache the result
       const facetValue = parent.facetFns[attributeName](bundle);
-      return Array.isArray(facetValue) ? facetValue : [facetValue];
+      const result = Array.isArray(facetValue) ? facetValue : [facetValue];
+      bundleCache.set(attributeName, result);
+      return result;
     };
     const combinerExtractorFn = (attributeName, parent) => parent.facetCombiners[attributeName] || 'some';
     // eslint-disable-next-line max-len
@@ -664,8 +680,22 @@ export class DataChunks {
     };
     const skipFilterFn = () => true;
     const valuesExtractorFn = (attributeName, bundle, parent) => {
+      // Check cache first
+      let bundleCache = parent.facetValueCache.get(bundle);
+      if (!bundleCache) {
+        bundleCache = new Map();
+        parent.facetValueCache.set(bundle, bundleCache);
+      }
+
+      if (bundleCache.has(attributeName)) {
+        return bundleCache.get(attributeName);
+      }
+
+      // Compute and cache the result
       const facetValue = parent.facetFns[attributeName](bundle);
-      return Array.isArray(facetValue) ? facetValue : [facetValue];
+      const result = Array.isArray(facetValue) ? facetValue : [facetValue];
+      bundleCache.set(attributeName, result);
+      return result;
     };
     const combinerExtractorFn = () => combiner || 'every';
 
