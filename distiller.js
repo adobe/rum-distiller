@@ -635,6 +635,12 @@ export class DataChunks {
         const combiner = combiners[combinerprefence];
         const negator = negators[combinerprefence];
 
+        // Optimize lookup: use Set for O(1) lookup when actualValues is large (>= 5 items)
+        // For small arrays, .includes() is faster due to Set construction overhead
+        if (actualValues.length >= 5) {
+          const actualValuesSet = new Set(actualValues);
+          return desiredValues[combiner]((value) => negator(actualValuesSet.has(value)));
+        }
         return desiredValues[combiner]((value) => negator(actualValues.includes(value)));
       }));
     } catch (error) {
