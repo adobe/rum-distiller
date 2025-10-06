@@ -45,13 +45,13 @@ export function isKnownFacet(key) {
     'consent',
     'paid',
     'email',
-    'acquisition',
     'login',
     'signup',
     'language', // record language preference
     'prerender',
     'redirect', // there was a redirect as part of the request
-    'acquisition', // virtual checkpoint
+    'acquisition', // virtual checkpoint,
+    'fill', // when a form field is filled
   ];
 
   const baseFacets = [
