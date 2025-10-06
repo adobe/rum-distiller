@@ -97,7 +97,7 @@ function aggregateFn(valueFn) {
  * Optimized grouping function using two-pass approach with pre-allocated arrays.
  * This eliminates the performance cost of dynamic array growth.
  * @param {Bundle[]} bundles - Array of bundles to group
- * @param {groupByFn} groupByFn - Function to determine group key(s) for each bundle
+ * @param {function(Bundle): (string|string[]|null)} groupByFn - Function to determine group key(s) for each bundle
  * @returns {Object<string, Bundle[]>} Grouped bundles
  */
 function groupBundlesOptimized(bundles, groupByFn) {
