@@ -1030,6 +1030,102 @@ describe('DataChunks.hasConversion', () => {
   });
 });
 
+describe('DataChunks facet value caching', () => {
+  it('should cache facet values when filtering with same facet for multiple bundles', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/test1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'enter', timeDelta: 0 }],
+          },
+          {
+            id: 'two',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:05.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/test2',
+            userAgent: 'desktop:mac',
+            weight: 100,
+            events: [{ checkpoint: 'click', timeDelta: 100 }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    const callCounts = new Map();
+    d.addFacet('testFacet', (bundle) => {
+      const count = callCounts.get(bundle.id) || 0;
+      callCounts.set(bundle.id, count + 1);
+      return bundle.events.map((e) => e.checkpoint);
+    });
+
+    // Filter should call the facet function once per bundle
+    d.filterBy({ testFacet: ['click', 'enter'] });
+
+    // Each bundle's facet function should be called exactly once
+    assert.equal(callCounts.get('one'), 1);
+    assert.equal(callCounts.get('two'), 1);
+  });
+
+  it('should cache facet values across filterBundles and hasConversion calls', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/test',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [
+              { checkpoint: 'click', target: 'button1', timeDelta: 100 },
+              { checkpoint: 'enter', timeDelta: 0 },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    let checkpointCallCount = 0;
+    d.addFacet('checkpoints', (bundle) => {
+      checkpointCallCount += 1;
+      return bundle.events.map((e) => e.checkpoint);
+    });
+
+    // First, filter bundles using the checkpoints facet
+    const filtered = d.filterBy({ checkpoints: ['click'] });
+    const firstCallCount = checkpointCallCount;
+
+    // Then call hasConversion on the same bundle with the same facet
+    // The cache should be used, so no additional facet function calls
+    const bundle = filtered[0];
+    const result = d.hasConversion(bundle, { checkpoints: ['click'] });
+
+    // Facet function should be called only once (during filter)
+    // hasConversion should use the cached value
+    assert.equal(firstCallCount, 1);
+    assert.equal(checkpointCallCount, 1);
+    assert.equal(result, true);
+  });
+});
+
 describe('DataChunks.addHistogramFacet()', () => {
   it('should create a histogram facet based on a base facet', () => {
     const d = new DataChunks();
