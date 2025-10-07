@@ -2,7 +2,7 @@
   "name": "@adobe/rum-distiller",
   "version": "1.19.0",
   "scripts": {
-    "test": "node --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=lcov.info --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=junit.xml",
+    "test": "node --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=lcov.info --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=junit.xml 'test/**/*.test.js'",
     "test-ci": "npm run test",
     "lint": "eslint .",
     "docs": "npx jsdoc2md --files '*.js'  > API.md",
