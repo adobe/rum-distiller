@@ -524,6 +524,12 @@ export class DataChunks {
     this.memo = {};
     // cache for facet function results: WeakMap<bundle, Map<attributeName, cachedValue>>
     this.facetValueCache = new WeakMap();
+    // cache statistics for performance measurement
+    this.cacheStats = {
+      hits: 0,
+      misses: 0,
+      setUsage: 0, // count of times cached Set was used
+    };
   }
 
   /**
@@ -645,30 +651,39 @@ export class DataChunks {
       return this.facetFns[facetName];
     };
     const skipFilterFn = ([facetName]) => !skipped.includes(facetName);
-    const valuesExtractorFn = (attributeName, bundle, parent) => {
+    const valuesExtractorFn = (attributeName, bundle, parent, asSet = false) => {
       // Optimized cache access with pre-initialization check elimination
       let bundleCache = parent.facetValueCache.get(bundle);
       if (bundleCache === undefined) {
-        // First access to this bundle - create and populate cache
+        // First access to this bundle - create and populate cache with both formats
+        parent.cacheStats.misses += 1;
         bundleCache = new Map();
         parent.facetValueCache.set(bundle, bundleCache);
         const facetValue = parent.facetFns[attributeName](bundle);
-        const result = Array.isArray(facetValue) ? facetValue : [facetValue];
-        bundleCache.set(attributeName, result);
-        return result;
+        const array = Array.isArray(facetValue) ? facetValue : [facetValue];
+        const set = new Set(array);
+        bundleCache.set(attributeName, { array, set });
+        return asSet ? set : array;
       }
 
       // Cache hit path - check if attribute is cached
       const cached = bundleCache.get(attributeName);
       if (cached !== undefined) {
-        return cached;
+        parent.cacheStats.hits += 1;
+        if (asSet) {
+          parent.cacheStats.setUsage += 1;
+        }
+        // Return the requested format (array or Set)
+        return asSet ? cached.set : cached.array;
       }
 
       // Attribute not yet cached for this bundle
+      parent.cacheStats.misses += 1;
       const facetValue = parent.facetFns[attributeName](bundle);
-      const result = Array.isArray(facetValue) ? facetValue : [facetValue];
-      bundleCache.set(attributeName, result);
-      return result;
+      const array = Array.isArray(facetValue) ? facetValue : [facetValue];
+      const set = new Set(array);
+      bundleCache.set(attributeName, { array, set });
+      return asSet ? set : array;
     };
     const combinerExtractorFn = (attributeName, parent) => parent.facetCombiners[attributeName] || 'some';
     // eslint-disable-next-line max-len
@@ -777,7 +792,7 @@ export class DataChunks {
         delete filter.selectivity;
       }
       return bundles.filter((bundle) => filterBy.every(([attributeName, desiredValues, desiredValuesSet, combiner, negator, isNegated]) => {
-        const actualValues = valuesExtractorFn(attributeName, bundle, this);
+        const actualValues = valuesExtractorFn(attributeName, bundle, this, false);
 
         // Optimization: For 'some' combiner WITHOUT negation, we can flip the iteration direction
         // and use the pre-built desiredValuesSet for O(1) lookups
@@ -790,10 +805,13 @@ export class DataChunks {
         }
 
         // For 'every' combiner or negated 'some', we cannot flip the logic
-        // So we create a Set from actualValues for O(1) lookups
-        // This is still better than the original O(n) includes() for each desired value
-        const actualValuesSet = new Set(actualValues);
-        return desiredValues[combiner]((value) => negator(actualValuesSet.has(value)));
+        // Only use cached Set for large arrays (>= 5 items); for small arrays .includes() is faster
+        if (actualValues.length >= 5) {
+          // Use our pre-cached Set from actualValues for O(1) lookups
+          const actualValuesSet = valuesExtractorFn(attributeName, bundle, this, true);
+          return desiredValues[combiner]((value) => negator(actualValuesSet.has(value)));
+        }
+        return desiredValues[combiner]((value) => negator(actualValues.includes(value)));
       }));
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -821,30 +839,39 @@ export class DataChunks {
       return this.facetFns[facetName];
     };
     const skipFilterFn = () => true;
-    const valuesExtractorFn = (attributeName, bundle, parent) => {
+    const valuesExtractorFn = (attributeName, bundle, parent, asSet = false) => {
       // Optimized cache access with pre-initialization check elimination
       let bundleCache = parent.facetValueCache.get(bundle);
       if (bundleCache === undefined) {
-        // First access to this bundle - create and populate cache
+        // First access to this bundle - create and populate cache with both formats
+        parent.cacheStats.misses += 1;
         bundleCache = new Map();
         parent.facetValueCache.set(bundle, bundleCache);
         const facetValue = parent.facetFns[attributeName](bundle);
-        const result = Array.isArray(facetValue) ? facetValue : [facetValue];
-        bundleCache.set(attributeName, result);
-        return result;
+        const array = Array.isArray(facetValue) ? facetValue : [facetValue];
+        const set = new Set(array);
+        bundleCache.set(attributeName, { array, set });
+        return asSet ? set : array;
       }
 
       // Cache hit path - check if attribute is cached
       const cached = bundleCache.get(attributeName);
       if (cached !== undefined) {
-        return cached;
+        parent.cacheStats.hits += 1;
+        if (asSet) {
+          parent.cacheStats.setUsage += 1;
+        }
+        // Return the requested format (array or Set)
+        return asSet ? cached.set : cached.array;
       }
 
       // Attribute not yet cached for this bundle
+      parent.cacheStats.misses += 1;
       const facetValue = parent.facetFns[attributeName](bundle);
-      const result = Array.isArray(facetValue) ? facetValue : [facetValue];
-      bundleCache.set(attributeName, result);
-      return result;
+      const array = Array.isArray(facetValue) ? facetValue : [facetValue];
+      const set = new Set(array);
+      bundleCache.set(attributeName, { array, set });
+      return asSet ? set : array;
     };
     const combinerExtractorFn = () => combiner || 'every';
 
@@ -861,6 +888,22 @@ export class DataChunks {
   filterBy(filterSpec) {
     this.filter = filterSpec;
     return this.filtered;
+  }
+
+  /**
+   * Get cache statistics for performance monitoring.
+   * @returns {Object} Object containing cache hits, misses, hit rate, and Set usage count
+   */
+  getCacheStats() {
+    const total = this.cacheStats.hits + this.cacheStats.misses;
+    const hitRate = total > 0 ? (this.cacheStats.hits / total * 100).toFixed(2) : 0;
+    return {
+      hits: this.cacheStats.hits,
+      misses: this.cacheStats.misses,
+      total,
+      hitRate: `${hitRate}%`,
+      setUsage: this.cacheStats.setUsage,
+    };
   }
 
   get filtered() {

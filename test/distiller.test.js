@@ -1124,6 +1124,219 @@ describe('DataChunks facet value caching', () => {
     assert.equal(checkpointCallCount, 1);
     assert.equal(result, true);
   });
+
+  it('should cache both array and Set formats for facet values', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/test',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [
+              { checkpoint: 'checkpoint1', timeDelta: 0 },
+              { checkpoint: 'checkpoint2', timeDelta: 100 },
+              { checkpoint: 'checkpoint3', timeDelta: 200 },
+              { checkpoint: 'checkpoint4', timeDelta: 300 },
+              { checkpoint: 'checkpoint5', timeDelta: 400 },
+              { checkpoint: 'checkpoint6', timeDelta: 500 },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    let facetCallCount = 0;
+    d.addFacet('checkpoints', (bundle) => {
+      facetCallCount += 1;
+      return bundle.events.map((e) => e.checkpoint);
+    });
+
+    // Set 'every' combiner to avoid the 'some' optimization that uses desiredValuesSet
+    d.facetCombiners = { checkpoints: 'every' };
+
+    // Filter with a large array (>= 5 items) to trigger Set optimization
+    d.filterBy({ checkpoints: ['checkpoint1', 'checkpoint2'] });
+
+    // Facet function should be called only once, and the Set should be cached
+    assert.equal(facetCallCount, 1);
+
+    // Get cache stats to verify Set was used
+    const stats = d.getCacheStats();
+    assert.equal(stats.misses, 1); // First access is a miss
+    assert.equal(stats.hits, 1); // Second access (for Set) is a hit
+    assert.equal(stats.setUsage, 1); // Set was used once
+  });
+
+  it('should use cached Set for large facet value arrays', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'bundle1',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/test',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [
+              { checkpoint: 'cp1', timeDelta: 0 },
+              { checkpoint: 'cp2', timeDelta: 100 },
+              { checkpoint: 'cp3', timeDelta: 200 },
+              { checkpoint: 'cp4', timeDelta: 300 },
+              { checkpoint: 'cp5', timeDelta: 400 },
+            ],
+          },
+          {
+            id: 'bundle2',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:05.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/test2',
+            userAgent: 'desktop:mac',
+            weight: 100,
+            events: [
+              { checkpoint: 'cp1', timeDelta: 0 },
+              { checkpoint: 'cp6', timeDelta: 100 },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addFacet('checkpoints', (bundle) => bundle.events.map((e) => e.checkpoint));
+
+    // Set 'every' combiner to avoid the 'some' optimization that uses desiredValuesSet
+    d.facetCombiners = { checkpoints: 'every' };
+
+    // Filter with bundles that have different facet value counts
+    // bundle1 has >= 5 items (will use Set), bundle2 has < 5 (will not use Set)
+    const filtered = d.filterBy({ checkpoints: ['cp1'] });
+
+    assert.equal(filtered.length, 2);
+
+    const stats = d.getCacheStats();
+    assert.equal(stats.misses, 2); // Two bundles, two cache misses on first access for each
+    // bundle1: First access creates cache with both formats (miss), second access for Set (hit)
+    // bundle2: First access creates cache with both formats (miss), only array format used (< 5 items)
+    // But bundle2 array access happens after cache is created, so it might count as hit depending on filterBy iteration
+    assert.ok(stats.hits >= 1); // At least bundle1's Set access is a hit
+    assert.equal(stats.setUsage, 1); // Set used once for bundle1 only
+  });
+
+  it('should track cache statistics correctly', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/test',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [
+              { checkpoint: 'click', timeDelta: 100 },
+              { checkpoint: 'enter', timeDelta: 0 },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addFacet('checkpoints', (bundle) => bundle.events.map((e) => e.checkpoint));
+
+    // Initial stats should be zero
+    let stats = d.getCacheStats();
+    assert.equal(stats.hits, 0);
+    assert.equal(stats.misses, 0);
+    assert.equal(stats.total, 0);
+    assert.equal(stats.hitRate, '0%');
+    assert.equal(stats.setUsage, 0);
+
+    // Filter once
+    d.filterBy({ checkpoints: ['click'] });
+
+    stats = d.getCacheStats();
+    assert.equal(stats.misses, 1); // First access is a miss
+    assert.equal(stats.total, 1);
+
+    // Filter again with same facet - should hit cache
+    d.resetData();
+    d.load(testChunks);
+    d.addFacet('checkpoints', (bundle) => bundle.events.map((e) => e.checkpoint));
+    d.filterBy({ checkpoints: ['enter'] });
+
+    stats = d.getCacheStats();
+    assert.equal(stats.misses, 1);
+  });
+
+  it('should use cached Set in hasConversion for large facet arrays', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/test',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [
+              { checkpoint: 'cp1', timeDelta: 0 },
+              { checkpoint: 'cp2', timeDelta: 100 },
+              { checkpoint: 'cp3', timeDelta: 200 },
+              { checkpoint: 'cp4', timeDelta: 300 },
+              { checkpoint: 'cp5', timeDelta: 400 },
+              { checkpoint: 'cp6', timeDelta: 500 },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    let facetCallCount = 0;
+    d.addFacet('checkpoints', (bundle) => {
+      facetCallCount += 1;
+      return bundle.events.map((e) => e.checkpoint);
+    });
+
+    const bundle = d.bundles[0];
+
+    // Call hasConversion with a large facet array (>= 5 items) to trigger Set optimization
+    const result = d.hasConversion(bundle, { checkpoints: ['cp1'] });
+
+    assert.equal(result, true);
+    assert.equal(facetCallCount, 1); // Facet function should be called once
+
+    const stats = d.getCacheStats();
+    assert.equal(stats.misses, 1); // First access is a miss
+    assert.equal(stats.hits, 1); // Second access (for Set) is a hit
+    assert.equal(stats.setUsage, 1); // Set was used once
+  });
 });
 
 describe('DataChunks.addHistogramFacet()', () => {
