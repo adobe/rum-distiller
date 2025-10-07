@@ -1,3 +1,10 @@
+# [1.20.0-prerelease.1](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.7...v1.20.0-prerelease.1) (2025-10-07)
+
+
+### Features
+
+* **data-filtering:** add caching with array and Set formats for facet values ([bc9c675](https://github.com/adobe/rum-distiller/commit/bc9c675f5d5028d64e26d6ac3d0bd39c09593ece))
+
 ## [1.19.1-prerelease.7](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.6...v1.19.1-prerelease.7) (2025-10-07)
 
 
