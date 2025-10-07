@@ -1,3 +1,10 @@
+## [1.19.1-prerelease.5](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.4...v1.19.1-prerelease.5) (2025-10-07)
+
+
+### Performance Improvements
+
+* move sort outside reduce loop in facet computation ([aa87ff8](https://github.com/adobe/rum-distiller/commit/aa87ff8e1db6769c379342072934a7e157f6a076))
+
 ## [1.19.1-prerelease.4](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.3...v1.19.1-prerelease.4) (2025-10-07)
 
 
