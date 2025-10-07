@@ -727,62 +727,58 @@ export class DataChunks {
     try {
       // Pre-compute combiner/negator pairs for each filter attribute
       // This avoids recreating the lookup tables for every bundle in the hot loop
-      // Single-pass implementation: combines filtering, selectivity calculation, and mapping
-      const filterBy = [];
-      for (const entry of Object.entries(filterSpec)) {
-        // Skip if filter function says so
-        if (!skipFilterFn(entry)) continue;
+      const filterBy = Object.entries(filterSpec)
+        .filter(skipFilterFn)
+        .filter(([, desiredValues]) => desiredValues.length)
+        .filter(existenceFilterFn)
+        // Sort filters by selectivity to enable early short-circuit exit in .every()
+        // Selectivity is calculated using actual facet counts when available,
+        // falling back to desiredValues.length as a heuristic
+        .sort(([attrA, valuesA], [attrB, valuesB]) => {
+          // Calculate selectivity score for each filter
+          const selectivityA = this.calculateFilterSelectivity(attrA, valuesA);
+          const selectivityB = this.calculateFilterSelectivity(attrB, valuesB);
+          return selectivityA - selectivityB;
+        })
+        .map(([attributeName, desiredValues]) => {
+          const combinerPreference = combinerExtractorFn(attributeName, this);
+          const combiner = COMBINERS[combinerPreference];
+          const negator = NEGATORS[combinerPreference];
 
-        const [attributeName, desiredValues] = entry;
+          // Pre-build Set from desiredValues for O(1) lookups
+          // This Set is reused across all bundles, eliminating repeated Set construction
+          const desiredValuesSet = new Set(desiredValues);
 
-        // Skip if empty values
-        if (!desiredValues.length) continue;
+          // Track whether this filter uses negation (none/never preferences)
+          const isNegated = combinerPreference === 'none' || combinerPreference === 'never';
 
-        // Skip if existence check fails
-        if (!existenceFilterFn(entry)) continue;
+          return [
+            attributeName,
+            desiredValues,
+            desiredValuesSet,
+            combiner,
+            negator,
+            isNegated,
+          ];
+        });
+      return bundles.filter((bundle) => filterBy.every(([attributeName, desiredValues, desiredValuesSet, combiner, negator, isNegated]) => {
+        const actualValues = valuesExtractorFn(attributeName, bundle, this);
 
-        // Calculate selectivity for sorted insertion
-        const selectivity = this.calculateFilterSelectivity(attributeName, desiredValues);
-
-        // Build filter object with combiner/negator
-        const combinerPreference = combinerExtractorFn(attributeName, this);
-        const filter = [
-          attributeName,
-          desiredValues,
-          COMBINERS[combinerPreference],
-          NEGATORS[combinerPreference],
-        ];
-
-        // Insert into sorted position (binary search for optimal insertion)
-        let insertIndex = filterBy.length;
-        for (let i = 0; i < filterBy.length; i++) {
-          if (selectivity < filterBy[i].selectivity) {
-            insertIndex = i;
-            break;
-          }
+        // Optimization: For 'some' combiner WITHOUT negation, we can flip the iteration direction
+        // and use the pre-built desiredValuesSet for O(1) lookups
+        // Original: desiredValues.some(v => actualValues.includes(v)) - O(n * m)
+        // Optimized: actualValues.some(v => desiredValuesSet.has(v)) - O(n)
+        // Note: Cannot flip for negation because semantics differ:
+        //   - "exists desired NOT in actual" !== "exists actual NOT in desired"
+        if (combiner === 'some' && !isNegated) {
+          return actualValues[combiner]((value) => negator(desiredValuesSet.has(value)));
         }
 
-        // Store selectivity temporarily for sorted insertion
-        filter.selectivity = selectivity;
-        filterBy.splice(insertIndex, 0, filter);
-      }
-
-      // Remove temporary selectivity property
-      for (const filter of filterBy) {
-        delete filter.selectivity;
-      }
-      return bundles.filter((bundle) => filterBy.every(([attributeName, desiredValues, combiner, negator]) => {
-        // Get actualValues as array first to check length
-        const actualValues = valuesExtractorFn(attributeName, bundle, this, false);
-
-        // Optimize lookup: use cached Set for O(1) lookup when actualValues is large (>= 5 items)
-        // For small arrays, .includes() is faster due to Set construction overhead
-        if (actualValues.length >= 5) {
-          // Get the pre-cached Set instead of constructing a new one
-          const actualValuesSet = valuesExtractorFn(attributeName, bundle, this, true);
-          return desiredValues[combiner]((value) => negator(actualValuesSet.has(value)));
-        }
-        return desiredValues[combiner]((value) => negator(actualValues.includes(value)));
+        // For 'every' combiner or negated 'some', we cannot flip the logic
+        // So we create a Set from actualValues for O(1) lookups
+        // This is still better than the original O(n) includes() for each desired value
+        const actualValuesSet = new Set(actualValues);
+        return desiredValues[combiner]((value) => negator(actualValuesSet.has(value)));
       }));
     } catch (error) {
       // eslint-disable-next-line no-console
