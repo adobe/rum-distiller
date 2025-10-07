@@ -994,10 +994,10 @@ export class DataChunks {
           .reduce((accInner, [facetValue, bundles]) => {
             accInner.push(bundles
               .reduce(f, new Facet(this, facetValue, facetName)));
-            // sort the entries by weight, descending
-            accInner.sort((left, right) => right.weight - left.weight);
             return accInner;
-          }, []);
+          }, [])
+          // sort the entries by weight, descending (once after reduce completes)
+          .sort((left, right) => right.weight - left.weight);
         return accOuter;
       }, {});
     return this.facetsIn;
