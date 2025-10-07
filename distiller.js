@@ -652,16 +652,24 @@ export class DataChunks {
     };
     const skipFilterFn = ([facetName]) => !skipped.includes(facetName);
     const valuesExtractorFn = (attributeName, bundle, parent, asSet = false) => {
-      // Check cache first
+      // Optimized cache access with pre-initialization check elimination
       let bundleCache = parent.facetValueCache.get(bundle);
-      if (!bundleCache) {
+      if (bundleCache === undefined) {
+        // First access to this bundle - create and populate cache
         bundleCache = new Map();
         parent.facetValueCache.set(bundle, bundleCache);
+        parent.cacheStats.misses += 1;
+        const facetValue = parent.facetFns[attributeName](bundle);
+        const array = Array.isArray(facetValue) ? facetValue : [facetValue];
+        const set = new Set(array);
+        bundleCache.set(attributeName, { array, set });
+        return asSet ? set : array;
       }
 
-      if (bundleCache.has(attributeName)) {
+      // Cache hit path - check if attribute is cached
+      const cached = bundleCache.get(attributeName);
+      if (cached !== undefined) {
         parent.cacheStats.hits += 1;
-        const cached = bundleCache.get(attributeName);
         if (asSet) {
           parent.cacheStats.setUsage += 1;
         }
@@ -669,7 +677,7 @@ export class DataChunks {
         return asSet ? cached.set : cached.array;
       }
 
-      // Cache miss - compute and cache both array and Set
+      // Attribute not yet cached for this bundle
       parent.cacheStats.misses += 1;
       const facetValue = parent.facetFns[attributeName](bundle);
       const array = Array.isArray(facetValue) ? facetValue : [facetValue];
@@ -807,16 +815,24 @@ export class DataChunks {
     };
     const skipFilterFn = () => true;
     const valuesExtractorFn = (attributeName, bundle, parent, asSet = false) => {
-      // Check cache first
+      // Optimized cache access with pre-initialization check elimination
       let bundleCache = parent.facetValueCache.get(bundle);
-      if (!bundleCache) {
+      if (bundleCache === undefined) {
+        // First access to this bundle - create and populate cache
         bundleCache = new Map();
         parent.facetValueCache.set(bundle, bundleCache);
+        parent.cacheStats.misses += 1;
+        const facetValue = parent.facetFns[attributeName](bundle);
+        const array = Array.isArray(facetValue) ? facetValue : [facetValue];
+        const set = new Set(array);
+        bundleCache.set(attributeName, { array, set });
+        return asSet ? set : array;
       }
 
-      if (bundleCache.has(attributeName)) {
+      // Cache hit path - check if attribute is cached
+      const cached = bundleCache.get(attributeName);
+      if (cached !== undefined) {
         parent.cacheStats.hits += 1;
-        const cached = bundleCache.get(attributeName);
         if (asSet) {
           parent.cacheStats.setUsage += 1;
         }
@@ -824,7 +840,7 @@ export class DataChunks {
         return asSet ? cached.set : cached.array;
       }
 
-      // Cache miss - compute and cache both array and Set
+      // Attribute not yet cached for this bundle
       parent.cacheStats.misses += 1;
       const facetValue = parent.facetFns[attributeName](bundle);
       const array = Array.isArray(facetValue) ? facetValue : [facetValue];
