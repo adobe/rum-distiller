@@ -1,3 +1,10 @@
+## [1.19.1-prerelease.4](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.3...v1.19.1-prerelease.4) (2025-10-07)
+
+
+### Bug Fixes
+
+* optimize filterBy.every() with selectivity-based reordering ([749ebe9](https://github.com/adobe/rum-distiller/commit/749ebe9730ca426e28fb9334542cf7b088dbf121)), closes [#5](https://github.com/adobe/rum-distiller/issues/5)
+
 ## [1.19.1-prerelease.3](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.2...v1.19.1-prerelease.3) (2025-10-07)
 
 
