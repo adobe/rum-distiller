@@ -1,3 +1,10 @@
+## [1.19.1-prerelease.2](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.1...v1.19.1-prerelease.2) (2025-10-07)
+
+
+### Bug Fixes
+
+* cache facet values in valuesExtractorFn to eliminate redundant calls ([7057860](https://github.com/adobe/rum-distiller/commit/7057860e1e219fa2fde4c3fd0e30b17c73206187)), closes [#1](https://github.com/adobe/rum-distiller/issues/1)
+
 ## [1.19.1-prerelease.1](https://github.com/adobe/rum-distiller/compare/v1.19.0...v1.19.1-prerelease.1) (2025-10-06)
 
 
