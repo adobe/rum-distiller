@@ -821,6 +821,107 @@ describe('DataChunks', () => {
 
     assert.equal(d.filtered.length, 1);
   });
+
+  it('DataChunk.filter() with large array (Set optimization path)', () => {
+    // Test the Set optimization path for arrays with >= 5 items
+    const chunks1 = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top' }],
+          },
+          {
+            id: 'two',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page2',
+            userAgent: 'desktop:mac',
+            weight: 100,
+            events: [{ checkpoint: 'top' }],
+          },
+          {
+            id: 'three',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page3',
+            userAgent: 'mobile:ios',
+            weight: 100,
+            events: [{ checkpoint: 'top' }],
+          },
+          {
+            id: 'four',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page4',
+            userAgent: 'mobile:android',
+            weight: 100,
+            events: [{ checkpoint: 'top' }],
+          },
+          {
+            id: 'five',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page5',
+            userAgent: 'bot',
+            weight: 100,
+            events: [{ checkpoint: 'top' }],
+          },
+          {
+            id: 'six',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page6',
+            userAgent: 'tablet',
+            weight: 100,
+            events: [{ checkpoint: 'top' }],
+          },
+        ],
+      },
+    ];
+    const d = new DataChunks();
+    d.load(chunks1);
+
+    // Create a facet that returns an array with >= 5 items
+    d.addFacet('multivalue', (bundle) => [
+      'value1',
+      'value2',
+      'value3',
+      'value4',
+      'value5',
+      bundle.id, // Include bundle-specific value
+    ]);
+
+    // Filter where some bundles match
+    d.filter = {
+      multivalue: ['one', 'two'],
+    };
+    assert.equal(d.filtered.length, 2);
+
+    // Filter where no bundles match
+    d.filter = {
+      multivalue: ['nonexistent'],
+    };
+    assert.equal(d.filtered.length, 0);
+
+    // Filter where all bundles match (common values)
+    d.filter = {
+      multivalue: ['value1'],
+    };
+    assert.equal(d.filtered.length, 6);
+  });
 });
 
 describe('DataChunks.hasConversion', () => {
@@ -926,6 +1027,102 @@ describe('DataChunks.hasConversion', () => {
     assert.equal(converted, undefined);
     const notConverted = facets.find((f) => f.value === 'not-converted');
     assert.equal(notConverted?.count, 3);
+  });
+});
+
+describe('DataChunks facet value caching', () => {
+  it('should cache facet values when filtering with same facet for multiple bundles', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/test1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'enter', timeDelta: 0 }],
+          },
+          {
+            id: 'two',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:05.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/test2',
+            userAgent: 'desktop:mac',
+            weight: 100,
+            events: [{ checkpoint: 'click', timeDelta: 100 }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    const callCounts = new Map();
+    d.addFacet('testFacet', (bundle) => {
+      const count = callCounts.get(bundle.id) || 0;
+      callCounts.set(bundle.id, count + 1);
+      return bundle.events.map((e) => e.checkpoint);
+    });
+
+    // Filter should call the facet function once per bundle
+    d.filterBy({ testFacet: ['click', 'enter'] });
+
+    // Each bundle's facet function should be called exactly once
+    assert.equal(callCounts.get('one'), 1);
+    assert.equal(callCounts.get('two'), 1);
+  });
+
+  it('should cache facet values across filterBundles and hasConversion calls', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/test',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [
+              { checkpoint: 'click', target: 'button1', timeDelta: 100 },
+              { checkpoint: 'enter', timeDelta: 0 },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    let checkpointCallCount = 0;
+    d.addFacet('checkpoints', (bundle) => {
+      checkpointCallCount += 1;
+      return bundle.events.map((e) => e.checkpoint);
+    });
+
+    // First, filter bundles using the checkpoints facet
+    const filtered = d.filterBy({ checkpoints: ['click'] });
+    const firstCallCount = checkpointCallCount;
+
+    // Then call hasConversion on the same bundle with the same facet
+    // The cache should be used, so no additional facet function calls
+    const bundle = filtered[0];
+    const result = d.hasConversion(bundle, { checkpoints: ['click'] });
+
+    // Facet function should be called only once (during filter)
+    // hasConversion should use the cached value
+    assert.equal(firstCallCount, 1);
+    assert.equal(checkpointCallCount, 1);
+    assert.equal(result, true);
   });
 });
 
