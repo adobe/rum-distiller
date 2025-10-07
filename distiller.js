@@ -599,11 +599,13 @@ export class DataChunks {
    */
   calculateFilterSelectivity(attributeName, desiredValues) {
     // Try to use actual facet counts if facets have been computed
-    if (this.facetsIn && this.facetsIn[attributeName]) {
+    if (this.facetsIn && Array.isArray(this.facetsIn[attributeName])) {
       const facetValues = this.facetsIn[attributeName];
+      // Build a Map for O(1) facet value lookup
+      const facetValueMap = new Map(facetValues.map((f) => [f.value, f]));
       // Sum the count of bundles matching the desired facet values
       const totalCount = desiredValues.reduce((sum, desiredValue) => {
-        const facet = facetValues.find((f) => f.value === desiredValue);
+        const facet = facetValueMap.get(desiredValue);
         return sum + (facet ? facet.count : 0);
       }, 0);
       // Return total count as selectivity score (lower count = more selective)
