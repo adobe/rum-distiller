@@ -590,33 +590,6 @@ export class DataChunks {
   }
 
   /**
-   * Calculate filter selectivity score. Lower scores = more selective = evaluated first.
-   * Uses actual facet bundle counts when available, falling back to desiredValues.length.
-   * @private
-   * @param {string} attributeName the filter attribute name
-   * @param {string[]} desiredValues the filter values
-   * @returns {number} selectivity score (lower = more selective)
-   */
-  calculateFilterSelectivity(attributeName, desiredValues) {
-    // Try to use actual facet counts if facets have been computed
-    if (this.facetsIn && Array.isArray(this.facetsIn[attributeName])) {
-      const facetValues = this.facetsIn[attributeName];
-      // Build a Map for O(1) facet value lookup
-      const facetValueMap = new Map(facetValues.map((f) => [f.value, f]));
-      // Sum the count of bundles matching the desired facet values
-      const totalCount = desiredValues.reduce((sum, desiredValue) => {
-        const facet = facetValueMap.get(desiredValue);
-        return sum + (facet ? facet.count : 0);
-      }, 0);
-      // Return total count as selectivity score (lower count = more selective)
-      return totalCount;
-    }
-    // Fallback: use desiredValues.length as a heuristic
-    // (fewer values = more selective)
-    return desiredValues.length;
-  }
-
-  /**
    * @private
    * @param {Bundle[]} bundles that will be filtered based on a filter specification.
    * @param {Object<string, string[]>} filterSpec the filter specification.
@@ -635,16 +608,7 @@ export class DataChunks {
       const filterBy = Object.entries(filterSpec)
         .filter(skipFilterFn)
         .filter(([, desiredValues]) => desiredValues.length)
-        .filter(existenceFilterFn)
-        // Sort filters by selectivity to enable early short-circuit exit in .every()
-        // Selectivity is calculated using actual facet counts when available,
-        // falling back to desiredValues.length as a heuristic
-        .sort(([attrA, valuesA], [attrB, valuesB]) => {
-          // Calculate selectivity score for each filter
-          const selectivityA = this.calculateFilterSelectivity(attrA, valuesA);
-          const selectivityB = this.calculateFilterSelectivity(attrB, valuesB);
-          return selectivityA - selectivityB;
-        });
+        .filter(existenceFilterFn);
       return bundles.filter((bundle) => filterBy.every(([attributeName, desiredValues]) => {
         const actualValues = valuesExtractorFn(attributeName, bundle, this);
 
