@@ -711,12 +711,23 @@ export class DataChunks {
   // eslint-disable-next-line max-len
   applyFilter(bundles, filterSpec, skipFilterFn, existenceFilterFn, valuesExtractorFn, combinerExtractorFn) {
     try {
+      // Validate facet existence once before processing - moves O(bundles × filters) to O(filters)
+      const filterEntries = Object.entries(filterSpec);
+      for (let i = 0; i < filterEntries.length; i++) {
+        const entry = filterEntries[i];
+        if (!skipFilterFn(entry) || !entry[1].length) continue;
+        if (!existenceFilterFn(entry)) {
+          // existenceFilterFn throws on invalid facets, this shouldn't be reached
+          // but we check it anyway for safety
+          continue;
+        }
+      }
+
       // Pre-compute combiner/negator pairs for each filter attribute
       // This avoids recreating the lookup tables for every bundle in the hot loop
-      const filterBy = Object.entries(filterSpec)
+      const filterBy = filterEntries
         .filter(skipFilterFn)
         .filter(([, desiredValues]) => desiredValues.length)
-        .filter(existenceFilterFn)
         // Sort filters by selectivity to enable early short-circuit exit in .every()
         // Selectivity is calculated using actual facet counts when available,
         // falling back to desiredValues.length as a heuristic
