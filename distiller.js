@@ -646,18 +646,25 @@ export class DataChunks {
     };
     const skipFilterFn = ([facetName]) => !skipped.includes(facetName);
     const valuesExtractorFn = (attributeName, bundle, parent) => {
-      // Check cache first
+      // Optimized cache access with pre-initialization check elimination
       let bundleCache = parent.facetValueCache.get(bundle);
-      if (!bundleCache) {
+      if (bundleCache === undefined) {
+        // First access to this bundle - create and populate cache
         bundleCache = new Map();
         parent.facetValueCache.set(bundle, bundleCache);
+        const facetValue = parent.facetFns[attributeName](bundle);
+        const result = Array.isArray(facetValue) ? facetValue : [facetValue];
+        bundleCache.set(attributeName, result);
+        return result;
       }
 
-      if (bundleCache.has(attributeName)) {
-        return bundleCache.get(attributeName);
+      // Cache hit path - check if attribute is cached
+      const cached = bundleCache.get(attributeName);
+      if (cached !== undefined) {
+        return cached;
       }
 
-      // Compute and cache the result
+      // Attribute not yet cached for this bundle
       const facetValue = parent.facetFns[attributeName](bundle);
       const result = Array.isArray(facetValue) ? facetValue : [facetValue];
       bundleCache.set(attributeName, result);
@@ -711,44 +718,82 @@ export class DataChunks {
   // eslint-disable-next-line max-len
   applyFilter(bundles, filterSpec, skipFilterFn, existenceFilterFn, valuesExtractorFn, combinerExtractorFn) {
     try {
-      // Validate and filter facet existence once before processing - moves O(bundles × filters) to O(filters)
-      // This pre-filters the entries to only valid, non-empty, existing facets
-      const filterEntries = Object.entries(filterSpec)
-        .filter(skipFilterFn)
-        .filter(([, desiredValues]) => desiredValues.length)
-        .filter(existenceFilterFn);
-
       // Pre-compute combiner/negator pairs for each filter attribute
       // This avoids recreating the lookup tables for every bundle in the hot loop
-      const filterBy = filterEntries
-        // Sort filters by selectivity to enable early short-circuit exit in .every()
-        // Selectivity is calculated using actual facet counts when available,
-        // falling back to desiredValues.length as a heuristic
-        .sort(([attrA, valuesA], [attrB, valuesB]) => {
-          // Calculate selectivity score for each filter
-          const selectivityA = this.calculateFilterSelectivity(attrA, valuesA);
-          const selectivityB = this.calculateFilterSelectivity(attrB, valuesB);
-          return selectivityA - selectivityB;
-        })
-        .map(([attributeName, desiredValues]) => {
-          const combinerPreference = combinerExtractorFn(attributeName, this);
-          return [
-            attributeName,
-            desiredValues,
-            COMBINERS[combinerPreference],
-            NEGATORS[combinerPreference],
-          ];
-        });
-      return bundles.filter((bundle) => filterBy.every(([attributeName, desiredValues, combiner, negator]) => {
+      // Single-pass implementation: combines filtering, selectivity calculation, and mapping
+      const filterBy = [];
+      for (const entry of Object.entries(filterSpec)) {
+        // Skip if filter function says so
+        if (!skipFilterFn(entry)) continue;
+
+        const [attributeName, desiredValues] = entry;
+
+        // Skip if empty values
+        if (!desiredValues.length) continue;
+
+        // Skip if existence check fails
+        if (!existenceFilterFn(entry)) continue;
+
+        // Calculate selectivity for sorted insertion
+        const selectivity = this.calculateFilterSelectivity(attributeName, desiredValues);
+
+        // Build filter object with combiner/negator
+        const combinerPreference = combinerExtractorFn(attributeName, this);
+        const combiner = COMBINERS[combinerPreference];
+        const negator = NEGATORS[combinerPreference];
+
+        // Pre-build Set from desiredValues for O(1) lookups
+        // This Set is reused across all bundles, eliminating repeated Set construction
+        const desiredValuesSet = new Set(desiredValues);
+
+        // Track whether this filter uses negation (none/never preferences)
+        const isNegated = combinerPreference === 'none' || combinerPreference === 'never';
+
+        const filter = [
+          attributeName,
+          desiredValues,
+          desiredValuesSet,
+          combiner,
+          negator,
+          isNegated,
+        ];
+
+        // Insert into sorted position (binary search for optimal insertion)
+        let insertIndex = filterBy.length;
+        for (let i = 0; i < filterBy.length; i++) {
+          if (selectivity < filterBy[i].selectivity) {
+            insertIndex = i;
+            break;
+          }
+        }
+
+        // Store selectivity temporarily for sorted insertion
+        filter.selectivity = selectivity;
+        filterBy.splice(insertIndex, 0, filter);
+      }
+
+      // Remove temporary selectivity property
+      for (const filter of filterBy) {
+        delete filter.selectivity;
+      }
+      return bundles.filter((bundle) => filterBy.every(([attributeName, desiredValues, desiredValuesSet, combiner, negator, isNegated]) => {
         const actualValues = valuesExtractorFn(attributeName, bundle, this);
 
-        // Optimize lookup: use Set for O(1) lookup when actualValues is large (>= 5 items)
-        // For small arrays, .includes() is faster due to Set construction overhead
-        if (actualValues.length >= 5) {
-          const actualValuesSet = new Set(actualValues);
-          return desiredValues[combiner]((value) => negator(actualValuesSet.has(value)));
+        // Optimization: For 'some' combiner WITHOUT negation, we can flip the iteration direction
+        // and use the pre-built desiredValuesSet for O(1) lookups
+        // Original: desiredValues.some(v => actualValues.includes(v)) - O(n * m)
+        // Optimized: actualValues.some(v => desiredValuesSet.has(v)) - O(n)
+        // Note: Cannot flip for negation because semantics differ:
+        //   - "exists desired NOT in actual" !== "exists actual NOT in desired"
+        if (combiner === 'some' && !isNegated) {
+          return actualValues[combiner]((value) => negator(desiredValuesSet.has(value)));
         }
-        return desiredValues[combiner]((value) => negator(actualValues.includes(value)));
+
+        // For 'every' combiner or negated 'some', we cannot flip the logic
+        // So we create a Set from actualValues for O(1) lookups
+        // This is still better than the original O(n) includes() for each desired value
+        const actualValuesSet = new Set(actualValues);
+        return desiredValues[combiner]((value) => negator(actualValuesSet.has(value)));
       }));
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -777,18 +822,25 @@ export class DataChunks {
     };
     const skipFilterFn = () => true;
     const valuesExtractorFn = (attributeName, bundle, parent) => {
-      // Check cache first
+      // Optimized cache access with pre-initialization check elimination
       let bundleCache = parent.facetValueCache.get(bundle);
-      if (!bundleCache) {
+      if (bundleCache === undefined) {
+        // First access to this bundle - create and populate cache
         bundleCache = new Map();
         parent.facetValueCache.set(bundle, bundleCache);
+        const facetValue = parent.facetFns[attributeName](bundle);
+        const result = Array.isArray(facetValue) ? facetValue : [facetValue];
+        bundleCache.set(attributeName, result);
+        return result;
       }
 
-      if (bundleCache.has(attributeName)) {
-        return bundleCache.get(attributeName);
+      // Cache hit path - check if attribute is cached
+      const cached = bundleCache.get(attributeName);
+      if (cached !== undefined) {
+        return cached;
       }
 
-      // Compute and cache the result
+      // Attribute not yet cached for this bundle
       const facetValue = parent.facetFns[attributeName](bundle);
       const result = Array.isArray(facetValue) ? facetValue : [facetValue];
       bundleCache.set(attributeName, result);
@@ -998,10 +1050,10 @@ export class DataChunks {
           .reduce((accInner, [facetValue, bundles]) => {
             accInner.push(bundles
               .reduce(f, new Facet(this, facetValue, facetName)));
-            // sort the entries by weight, descending
-            accInner.sort((left, right) => right.weight - left.weight);
             return accInner;
-          }, []);
+          }, [])
+          // sort the entries by weight, descending (once after reduce completes)
+          .sort((left, right) => right.weight - left.weight);
         return accOuter;
       }, {});
     return this.facetsIn;
