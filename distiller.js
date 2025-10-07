@@ -646,18 +646,25 @@ export class DataChunks {
     };
     const skipFilterFn = ([facetName]) => !skipped.includes(facetName);
     const valuesExtractorFn = (attributeName, bundle, parent) => {
-      // Check cache first
+      // Optimized cache access with pre-initialization check elimination
       let bundleCache = parent.facetValueCache.get(bundle);
-      if (!bundleCache) {
+      if (bundleCache === undefined) {
+        // First access to this bundle - create and populate cache
         bundleCache = new Map();
         parent.facetValueCache.set(bundle, bundleCache);
+        const facetValue = parent.facetFns[attributeName](bundle);
+        const result = Array.isArray(facetValue) ? facetValue : [facetValue];
+        bundleCache.set(attributeName, result);
+        return result;
       }
 
-      if (bundleCache.has(attributeName)) {
-        return bundleCache.get(attributeName);
+      // Cache hit path - check if attribute is cached
+      const cached = bundleCache.get(attributeName);
+      if (cached !== undefined) {
+        return cached;
       }
 
-      // Compute and cache the result
+      // Attribute not yet cached for this bundle
       const facetValue = parent.facetFns[attributeName](bundle);
       const result = Array.isArray(facetValue) ? facetValue : [facetValue];
       bundleCache.set(attributeName, result);
@@ -773,18 +780,25 @@ export class DataChunks {
     };
     const skipFilterFn = () => true;
     const valuesExtractorFn = (attributeName, bundle, parent) => {
-      // Check cache first
+      // Optimized cache access with pre-initialization check elimination
       let bundleCache = parent.facetValueCache.get(bundle);
-      if (!bundleCache) {
+      if (bundleCache === undefined) {
+        // First access to this bundle - create and populate cache
         bundleCache = new Map();
         parent.facetValueCache.set(bundle, bundleCache);
+        const facetValue = parent.facetFns[attributeName](bundle);
+        const result = Array.isArray(facetValue) ? facetValue : [facetValue];
+        bundleCache.set(attributeName, result);
+        return result;
       }
 
-      if (bundleCache.has(attributeName)) {
-        return bundleCache.get(attributeName);
+      // Cache hit path - check if attribute is cached
+      const cached = bundleCache.get(attributeName);
+      if (cached !== undefined) {
+        return cached;
       }
 
-      // Compute and cache the result
+      // Attribute not yet cached for this bundle
       const facetValue = parent.facetFns[attributeName](bundle);
       const result = Array.isArray(facetValue) ? facetValue : [facetValue];
       bundleCache.set(attributeName, result);
