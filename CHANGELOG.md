@@ -1,3 +1,10 @@
+## [1.19.1-prerelease.3](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.2...v1.19.1-prerelease.3) (2025-10-07)
+
+
+### Performance Improvements
+
+* hoist static objects out of applyFilter hot loop ([0aacb2e](https://github.com/adobe/rum-distiller/commit/0aacb2e8c4f9448f97b420666522978f68b5fcd5)), closes [#3](https://github.com/adobe/rum-distiller/issues/3)
+
 ## [1.19.1-prerelease.2](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.1...v1.19.1-prerelease.2) (2025-10-07)
 
 
