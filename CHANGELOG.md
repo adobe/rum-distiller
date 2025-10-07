@@ -1,3 +1,24 @@
+## [1.19.1-prerelease.7](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.6...v1.19.1-prerelease.7) (2025-10-07)
+
+
+### Performance Improvements
+
+* optimize filterBy with pre-built Sets for desiredValues ([f88ab85](https://github.com/adobe/rum-distiller/commit/f88ab85478d1c57b4eea757f6a57129f2ed64dea))
+
+## [1.19.1-prerelease.6](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.5...v1.19.1-prerelease.6) (2025-10-07)
+
+
+### Performance Improvements
+
+* optimize facetValueCache for reduced lookup overhead ([5e60576](https://github.com/adobe/rum-distiller/commit/5e6057631b948cd0ecfdb1fff46b926a8f71d092))
+
+## [1.19.1-prerelease.5](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.4...v1.19.1-prerelease.5) (2025-10-07)
+
+
+### Performance Improvements
+
+* move sort outside reduce loop in facet computation ([aa87ff8](https://github.com/adobe/rum-distiller/commit/aa87ff8e1db6769c379342072934a7e157f6a076))
+
 ## [1.19.1-prerelease.4](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.3...v1.19.1-prerelease.4) (2025-10-07)
 
 

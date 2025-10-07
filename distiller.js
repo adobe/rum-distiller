@@ -652,16 +652,24 @@ export class DataChunks {
     };
     const skipFilterFn = ([facetName]) => !skipped.includes(facetName);
     const valuesExtractorFn = (attributeName, bundle, parent, asSet = false) => {
-      // Check cache first
+      // Optimized cache access with pre-initialization check elimination
       let bundleCache = parent.facetValueCache.get(bundle);
-      if (!bundleCache) {
+      if (bundleCache === undefined) {
+        // First access to this bundle - create and populate cache with both formats
+        parent.cacheStats.misses += 1;
         bundleCache = new Map();
         parent.facetValueCache.set(bundle, bundleCache);
+        const facetValue = parent.facetFns[attributeName](bundle);
+        const array = Array.isArray(facetValue) ? facetValue : [facetValue];
+        const set = new Set(array);
+        bundleCache.set(attributeName, { array, set });
+        return asSet ? set : array;
       }
 
-      if (bundleCache.has(attributeName)) {
+      // Cache hit path - check if attribute is cached
+      const cached = bundleCache.get(attributeName);
+      if (cached !== undefined) {
         parent.cacheStats.hits += 1;
-        const cached = bundleCache.get(attributeName);
         if (asSet) {
           parent.cacheStats.setUsage += 1;
         }
@@ -669,7 +677,7 @@ export class DataChunks {
         return asSet ? cached.set : cached.array;
       }
 
-      // Cache miss - compute and cache both array and Set
+      // Attribute not yet cached for this bundle
       parent.cacheStats.misses += 1;
       const facetValue = parent.facetFns[attributeName](bundle);
       const array = Array.isArray(facetValue) ? facetValue : [facetValue];
@@ -742,21 +750,42 @@ export class DataChunks {
         })
         .map(([attributeName, desiredValues]) => {
           const combinerPreference = combinerExtractorFn(attributeName, this);
+          const combiner = COMBINERS[combinerPreference];
+          const negator = NEGATORS[combinerPreference];
+
+          // Pre-build Set from desiredValues for O(1) lookups
+          // This Set is reused across all bundles, eliminating repeated Set construction
+          const desiredValuesSet = new Set(desiredValues);
+
+          // Track whether this filter uses negation (none/never preferences)
+          const isNegated = combinerPreference === 'none' || combinerPreference === 'never';
+
           return [
             attributeName,
             desiredValues,
-            COMBINERS[combinerPreference],
-            NEGATORS[combinerPreference],
+            desiredValuesSet,
+            combiner,
+            negator,
+            isNegated,
           ];
         });
-      return bundles.filter((bundle) => filterBy.every(([attributeName, desiredValues, combiner, negator]) => {
-        // Get actualValues as array first to check length
+      return bundles.filter((bundle) => filterBy.every(([attributeName, desiredValues, desiredValuesSet, combiner, negator, isNegated]) => {
         const actualValues = valuesExtractorFn(attributeName, bundle, this, false);
 
-        // Optimize lookup: use cached Set for O(1) lookup when actualValues is large (>= 5 items)
-        // For small arrays, .includes() is faster due to Set construction overhead
+        // Optimization: For 'some' combiner WITHOUT negation, we can flip the iteration direction
+        // and use the pre-built desiredValuesSet for O(1) lookups
+        // Original: desiredValues.some(v => actualValues.includes(v)) - O(n * m)
+        // Optimized: actualValues.some(v => desiredValuesSet.has(v)) - O(n)
+        // Note: Cannot flip for negation because semantics differ:
+        //   - "exists desired NOT in actual" !== "exists actual NOT in desired"
+        if (combiner === 'some' && !isNegated) {
+          return actualValues[combiner]((value) => negator(desiredValuesSet.has(value)));
+        }
+
+        // For 'every' combiner or negated 'some', we cannot flip the logic
+        // Only use cached Set for large arrays (>= 5 items); for small arrays .includes() is faster
         if (actualValues.length >= 5) {
-          // Get the pre-cached Set instead of constructing a new one
+          // Use our pre-cached Set from actualValues for O(1) lookups
           const actualValuesSet = valuesExtractorFn(attributeName, bundle, this, true);
           return desiredValues[combiner]((value) => negator(actualValuesSet.has(value)));
         }
@@ -789,16 +818,24 @@ export class DataChunks {
     };
     const skipFilterFn = () => true;
     const valuesExtractorFn = (attributeName, bundle, parent, asSet = false) => {
-      // Check cache first
+      // Optimized cache access with pre-initialization check elimination
       let bundleCache = parent.facetValueCache.get(bundle);
-      if (!bundleCache) {
+      if (bundleCache === undefined) {
+        // First access to this bundle - create and populate cache with both formats
+        parent.cacheStats.misses += 1;
         bundleCache = new Map();
         parent.facetValueCache.set(bundle, bundleCache);
+        const facetValue = parent.facetFns[attributeName](bundle);
+        const array = Array.isArray(facetValue) ? facetValue : [facetValue];
+        const set = new Set(array);
+        bundleCache.set(attributeName, { array, set });
+        return asSet ? set : array;
       }
 
-      if (bundleCache.has(attributeName)) {
+      // Cache hit path - check if attribute is cached
+      const cached = bundleCache.get(attributeName);
+      if (cached !== undefined) {
         parent.cacheStats.hits += 1;
-        const cached = bundleCache.get(attributeName);
         if (asSet) {
           parent.cacheStats.setUsage += 1;
         }
@@ -806,7 +843,7 @@ export class DataChunks {
         return asSet ? cached.set : cached.array;
       }
 
-      // Cache miss - compute and cache both array and Set
+      // Attribute not yet cached for this bundle
       parent.cacheStats.misses += 1;
       const facetValue = parent.facetFns[attributeName](bundle);
       const array = Array.isArray(facetValue) ? facetValue : [facetValue];
@@ -1034,10 +1071,10 @@ export class DataChunks {
           .reduce((accInner, [facetValue, bundles]) => {
             accInner.push(bundles
               .reduce(f, new Facet(this, facetValue, facetName)));
-            // sort the entries by weight, descending
-            accInner.sort((left, right) => right.weight - left.weight);
             return accInner;
-          }, []);
+          }, [])
+          // sort the entries by weight, descending (once after reduce completes)
+          .sort((left, right) => right.weight - left.weight);
         return accOuter;
       }, {});
     return this.facetsIn;
