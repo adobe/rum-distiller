@@ -1383,6 +1383,63 @@ describe('DataChunks filter selectivity optimization', () => {
     assert.equal(d.filtered.length, 2);
   });
 
+  it('should use pre-built Sets for desiredValues lookups', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            url: 'https://www.aem.live/page1',
+            weight: 100,
+            events: [{ checkpoint: 'load' }],
+          },
+          {
+            id: 'two',
+            host: 'www.aem.live',
+            url: 'https://www.aem.live/page2',
+            weight: 100,
+            events: [{ checkpoint: 'load' }],
+          },
+          {
+            id: 'three',
+            host: 'www.example.com',
+            url: 'https://www.example.com/page1',
+            weight: 100,
+            events: [{ checkpoint: 'load' }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addFacet('host', (bundle) => bundle.host);
+    d.addFacet('url', (bundle) => bundle.url);
+
+    // Test with large desiredValues array (should benefit from Set optimization)
+    d.filter = {
+      host: ['www.aem.live', 'www.example.com', 'www.test.com', 'www.demo.com', 'www.staging.com'],
+    };
+    assert.equal(d.filtered.length, 3);
+
+    // Test with small desiredValues array
+    d.filter = {
+      host: ['www.aem.live'],
+    };
+    assert.equal(d.filtered.length, 2);
+
+    // Test with multiple filters
+    d.filter = {
+      host: ['www.aem.live'],
+      url: ['https://www.aem.live/page1'],
+    };
+    assert.equal(d.filtered.length, 1);
+    assert.equal(d.filtered[0].id, 'one');
+  });
+
   it('should preserve correct filtering behavior with negation filters', () => {
     const testChunks = [
       {

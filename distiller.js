@@ -728,23 +728,43 @@ export class DataChunks {
         })
         .map(([attributeName, desiredValues]) => {
           const combinerPreference = combinerExtractorFn(attributeName, this);
+          const combiner = COMBINERS[combinerPreference];
+          const negator = NEGATORS[combinerPreference];
+
+          // Pre-build Set from desiredValues for O(1) lookups
+          // This Set is reused across all bundles, eliminating repeated Set construction
+          const desiredValuesSet = new Set(desiredValues);
+
+          // Track whether this filter uses negation (none/never preferences)
+          const isNegated = combinerPreference === 'none' || combinerPreference === 'never';
+
           return [
             attributeName,
             desiredValues,
-            COMBINERS[combinerPreference],
-            NEGATORS[combinerPreference],
+            desiredValuesSet,
+            combiner,
+            negator,
+            isNegated,
           ];
         });
-      return bundles.filter((bundle) => filterBy.every(([attributeName, desiredValues, combiner, negator]) => {
+      return bundles.filter((bundle) => filterBy.every(([attributeName, desiredValues, desiredValuesSet, combiner, negator, isNegated]) => {
         const actualValues = valuesExtractorFn(attributeName, bundle, this);
 
-        // Optimize lookup: use Set for O(1) lookup when actualValues is large (>= 5 items)
-        // For small arrays, .includes() is faster due to Set construction overhead
-        if (actualValues.length >= 5) {
-          const actualValuesSet = new Set(actualValues);
-          return desiredValues[combiner]((value) => negator(actualValuesSet.has(value)));
+        // Optimization: For 'some' combiner WITHOUT negation, we can flip the iteration direction
+        // and use the pre-built desiredValuesSet for O(1) lookups
+        // Original: desiredValues.some(v => actualValues.includes(v)) - O(n * m)
+        // Optimized: actualValues.some(v => desiredValuesSet.has(v)) - O(n)
+        // Note: Cannot flip for negation because semantics differ:
+        //   - "exists desired NOT in actual" !== "exists actual NOT in desired"
+        if (combiner === 'some' && !isNegated) {
+          return actualValues[combiner]((value) => negator(desiredValuesSet.has(value)));
         }
-        return desiredValues[combiner]((value) => negator(actualValues.includes(value)));
+
+        // For 'every' combiner or negated 'some', we cannot flip the logic
+        // So we create a Set from actualValues for O(1) lookups
+        // This is still better than the original O(n) includes() for each desired value
+        const actualValuesSet = new Set(actualValues);
+        return desiredValues[combiner]((value) => negator(actualValuesSet.has(value)));
       }));
     } catch (error) {
       // eslint-disable-next-line no-console
