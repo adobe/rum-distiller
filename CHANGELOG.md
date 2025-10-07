@@ -1,3 +1,10 @@
+## [1.19.1-prerelease.7](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.6...v1.19.1-prerelease.7) (2025-10-07)
+
+
+### Performance Improvements
+
+* optimize filterBy with pre-built Sets for desiredValues ([f88ab85](https://github.com/adobe/rum-distiller/commit/f88ab85478d1c57b4eea757f6a57129f2ed64dea))
+
 ## [1.19.1-prerelease.6](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.5...v1.19.1-prerelease.6) (2025-10-07)
 
 
