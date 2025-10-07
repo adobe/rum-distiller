@@ -1,3 +1,10 @@
+## [1.19.1-prerelease.6](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.5...v1.19.1-prerelease.6) (2025-10-07)
+
+
+### Performance Improvements
+
+* optimize facetValueCache for reduced lookup overhead ([5e60576](https://github.com/adobe/rum-distiller/commit/5e6057631b948cd0ecfdb1fff46b926a8f71d092))
+
 ## [1.19.1-prerelease.5](https://github.com/adobe/rum-distiller/compare/v1.19.1-prerelease.4...v1.19.1-prerelease.5) (2025-10-07)
 
 
