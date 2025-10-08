@@ -1315,15 +1315,15 @@ describe('DataChunks facet value caching', () => {
 
     const bundle = d.bundles[0];
 
-    // hasConversion uses 'every' combiner which creates new Set(actualValues)
+    // hasConversion uses 'every' combiner which retrieves cached Set
     const result = d.hasConversion(bundle, { checkpoints: ['cp1'] });
 
     assert.equal(result, true);
     assert.equal(facetCallCount, 1); // Facet function should be called once
 
     const stats = d.getCacheStats();
-    assert.equal(stats.misses, 1); // First access is a miss, array stored in cache
-    // Note: 'every' combiner creates new Set from array, doesn't retrieve cached Set
+    assert.equal(stats.misses, 1); // First access stores array and Set in cache, returns Set
+    assert.equal(stats.setUsage, 1); // Set was returned on first access
   });
 });
 

@@ -659,6 +659,9 @@ export class DataChunks {
         bundleCache = new Map();
         parent.facetValueCache.set(bundle, bundleCache);
         parent.cacheStats.misses += 1;
+        if (asSet) {
+          parent.cacheStats.setUsage += 1;
+        }
         const facetValue = parent.facetFns[attributeName](bundle);
         const array = Array.isArray(facetValue) ? facetValue : [facetValue];
         const set = new Set(array);
@@ -679,6 +682,9 @@ export class DataChunks {
 
       // Attribute not yet cached for this bundle
       parent.cacheStats.misses += 1;
+      if (asSet) {
+        parent.cacheStats.setUsage += 1;
+      }
       const facetValue = parent.facetFns[attributeName](bundle);
       const array = Array.isArray(facetValue) ? facetValue : [facetValue];
       const set = new Set(array);
@@ -770,8 +776,6 @@ export class DataChunks {
           ];
         });
       return bundles.filter((bundle) => filterBy.every(([attributeName, desiredValues, desiredValuesSet, combiner, negator, isNegated]) => {
-        const actualValues = valuesExtractorFn(attributeName, bundle, this);
-
         // Optimization: For 'some' combiner WITHOUT negation, we can flip the iteration direction
         // and use the pre-built desiredValuesSet for O(1) lookups
         // Original: desiredValues.some(v => actualValues.includes(v)) - O(n * m)
@@ -779,13 +783,14 @@ export class DataChunks {
         // Note: Cannot flip for negation because semantics differ:
         //   - "exists desired NOT in actual" !== "exists actual NOT in desired"
         if (combiner === 'some' && !isNegated) {
+          const actualValues = valuesExtractorFn(attributeName, bundle, this);
           return actualValues[combiner]((value) => negator(desiredValuesSet.has(value)));
         }
 
         // For 'every' combiner or negated 'some', we cannot flip the logic
-        // So we create a Set from actualValues for O(1) lookups
-        // This is still better than the original O(n) includes() for each desired value
-        const actualValuesSet = new Set(actualValues);
+        // So we use the cached Set from actualValues for O(1) lookups
+        // This is better than the original O(n) includes() for each desired value
+        const actualValuesSet = valuesExtractorFn(attributeName, bundle, this, true);
         return desiredValues[combiner]((value) => negator(actualValuesSet.has(value)));
       }));
     } catch (error) {
@@ -822,6 +827,9 @@ export class DataChunks {
         bundleCache = new Map();
         parent.facetValueCache.set(bundle, bundleCache);
         parent.cacheStats.misses += 1;
+        if (asSet) {
+          parent.cacheStats.setUsage += 1;
+        }
         const facetValue = parent.facetFns[attributeName](bundle);
         const array = Array.isArray(facetValue) ? facetValue : [facetValue];
         const set = new Set(array);
@@ -842,6 +850,9 @@ export class DataChunks {
 
       // Attribute not yet cached for this bundle
       parent.cacheStats.misses += 1;
+      if (asSet) {
+        parent.cacheStats.setUsage += 1;
+      }
       const facetValue = parent.facetFns[attributeName](bundle);
       const array = Array.isArray(facetValue) ? facetValue : [facetValue];
       const set = new Set(array);
