@@ -1325,6 +1325,123 @@ describe('DataChunks facet value caching', () => {
     assert.equal(stats.misses, 1); // First access stores array and Set in cache, returns Set
     assert.equal(stats.setUsage, 1); // Set was returned on first access
   });
+
+  it('should track setUsage for cache hits when requesting Set', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            url: 'https://www.aem.live/test',
+            weight: 100,
+            events: [{ checkpoint: 'load' }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addFacet('url', (bundle) => bundle.url);
+
+    const bundle = d.bundles[0];
+
+    // First, access with array (combiner='some' uses array only, creates cache entry)
+    d.hasConversion(bundle, { url: ['https://www.aem.live/test'] }, 'some');
+
+    // Then access with Set (combiner='every' retrieves cached Set)
+    d.hasConversion(bundle, { url: ['https://www.aem.live/test'] }, 'every');
+
+    const stats = d.getCacheStats();
+    assert.equal(stats.misses, 1); // Only first access is a miss
+    assert.equal(stats.hits, 1); // Second access is a hit
+    assert.equal(stats.setUsage, 1); // Set was used on cache hit
+  });
+
+  it('should track setUsage when filtering with negated facets', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            url: 'https://www.aem.live/test',
+            weight: 100,
+            events: [{ checkpoint: 'load' }],
+          },
+          {
+            id: 'two',
+            host: 'www.example.com',
+            url: 'https://www.example.com/page',
+            weight: 100,
+            events: [{ checkpoint: 'click' }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    // Negated facet with 'none' combiner will use 'every' internally
+    d.addFacet('host!', (bundle) => bundle.host, 'none');
+
+    // This will filter bundles where host is NOT www.aem.live
+    // Uses 'every' combiner which requests cached Set
+    const filtered = d.filterBy({ 'host!': ['www.aem.live'] });
+
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].id, 'two');
+
+    const stats = d.getCacheStats();
+    // Each bundle is accessed once, both create cache entries with Set
+    assert.equal(stats.misses, 2);
+    assert.equal(stats.setUsage, 2); // Set used for both bundles
+  });
+
+  it('should use cached Set on subsequent filter operations', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            weight: 100,
+            events: [{ checkpoint: 'load' }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addFacet('host', (bundle) => bundle.host);
+
+    // First filter with 'some' combiner creates cache with array
+    d.filter = { host: ['www.aem.live'] };
+    const filtered1 = d.filtered;
+    assert.equal(filtered1.length, 1);
+
+    // Change facet to use 'every' combiner for same attribute
+    d.facetCombiners.host = 'every';
+    d.resetData(); // Clear filtered cache
+
+    // Second filter with 'every' combiner retrieves cached Set for same attribute
+    d.filter = { host: ['www.aem.live'] };
+    const filtered2 = d.filtered;
+    assert.equal(filtered2.length, 1);
+
+    const stats = d.getCacheStats();
+    assert.equal(stats.misses, 1); // First access creates cache
+    assert.equal(stats.hits, 1); // Second access hits cache for same attribute
+    assert.equal(stats.setUsage, 1); // Set retrieved from cache
+  });
 });
 
 describe('DataChunks.addHistogramFacet()', () => {
