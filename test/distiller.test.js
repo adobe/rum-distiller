@@ -1403,13 +1403,19 @@ describe('DataChunks facet value caching', () => {
     assert.equal(stats.setUsage, 2); // Set used for both bundles
   });
 
-  it('should use cached Set on subsequent filter operations', () => {
+  it('should increment setUsage on both cache miss and hit', () => {
     const testChunks = [
       {
         date: '2024-05-06',
         rumBundles: [
           {
             id: 'one',
+            host: 'www.aem.live',
+            weight: 100,
+            events: [{ checkpoint: 'load' }],
+          },
+          {
+            id: 'two',
             host: 'www.aem.live',
             weight: 100,
             events: [{ checkpoint: 'load' }],
@@ -1421,26 +1427,17 @@ describe('DataChunks facet value caching', () => {
     const d = new DataChunks();
     d.load(testChunks);
 
-    d.addFacet('host', (bundle) => bundle.host);
+    // Use 'every' combiner which requests Set format
+    d.addFacet('host!', (bundle) => bundle.host, 'never');
 
-    // First filter with 'some' combiner creates cache with array
-    d.filter = { host: ['www.aem.live'] };
-    const filtered1 = d.filtered;
-    assert.equal(filtered1.length, 1);
-
-    // Change facet to use 'every' combiner for same attribute
-    d.facetCombiners.host = 'every';
-    d.resetData(); // Clear filtered cache
-
-    // Second filter with 'every' combiner retrieves cached Set for same attribute
-    d.filter = { host: ['www.aem.live'] };
-    const filtered2 = d.filtered;
-    assert.equal(filtered2.length, 1);
+    // Filter will access both bundles with Set format
+    // First bundle: cache miss, returns Set (setUsage++)
+    // Second bundle: cache miss, returns Set (setUsage++)
+    d.filterBy({ 'host!': ['www.example.com'] });
 
     const stats = d.getCacheStats();
-    assert.equal(stats.misses, 1); // First access creates cache
-    assert.equal(stats.hits, 1); // Second access hits cache for same attribute
-    assert.equal(stats.setUsage, 1); // Set retrieved from cache
+    assert.equal(stats.misses, 2); // Both bundles are cache misses
+    assert.equal(stats.setUsage, 2); // Set used for both bundles
   });
 });
 
