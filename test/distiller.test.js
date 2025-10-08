@@ -1439,6 +1439,52 @@ describe('DataChunks facet value caching', () => {
     assert.equal(stats.misses, 2); // Both bundles are cache misses
     assert.equal(stats.setUsage, 2); // Set used for both bundles
   });
+
+  it('should track setUsage for cache hits in filterBundles during facets computation', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            url: 'https://www.aem.live/page1',
+            weight: 100,
+            events: [{ checkpoint: 'load' }],
+          },
+          {
+            id: 'two',
+            host: 'www.aem.live',
+            url: 'https://www.aem.live/page2',
+            weight: 100,
+            events: [{ checkpoint: 'click' }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    // Both facets use 'every' combiner, which uses asSet=true
+    d.addFacet('host', (bundle) => bundle.host, 'every');
+    d.addFacet('url', (bundle) => bundle.url, 'every');
+
+    // Set a filter that uses 'every' combiner
+    d.filter = { host: ['www.aem.live'] };
+
+    // Access facets - this triggers multiple filterBundles calls
+    // First facet (host) computation: filters with 'host' skipped -> caches 'host' values (miss)
+    // Second facet (url) computation: filters with active 'host' filter -> reuses cached 'host' values (hit)
+    const facets = d.facets;
+
+    const stats = d.getCacheStats();
+    // We have cache hits from reusing values across facet computations
+    assert.ok(stats.hits > 0, 'Should have cache hits');
+    assert.ok(stats.setUsage > 0, 'Should have setUsage > 0');
+    // Verify that cache hits also incremented setUsage (lines 677-678)
+    assert.ok(stats.setUsage >= stats.hits, 'setUsage should include hits');
+  });
 });
 
 describe('DataChunks.addHistogramFacet()', () => {
