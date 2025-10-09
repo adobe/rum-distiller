@@ -16,6 +16,27 @@
  * filtering, aggregating, and summarizing the data.
  */
 import { urlProducer } from './utils.js';
+
+// Static lookup tables for filter combiners and negators
+// Hoisted to module level to avoid recreating on every bundle filter iteration
+const COMBINERS = {
+  // if some elements match, then return true (partial inclusion)
+  some: 'some',
+  // if some elements do not match, then return true (partial exclusion)
+  none: 'some',
+  // if every element matches, then return true (full inclusion)
+  every: 'every',
+  // if every element does not match, then return true (full exclusion)
+  never: 'every',
+};
+
+const NEGATORS = {
+  some: (value) => value,
+  every: (value) => value,
+  none: (value) => !value,
+  never: (value) => !value,
+};
+
 /**
  * @typedef {Object} RawEvent - a raw RUM event
  * @property {string} checkpoint - the name of the event that happened
@@ -72,21 +93,63 @@ function aggregateFn(valueFn) {
   };
 }
 
-function groupFn(groupByFn) {
-  return (acc, bundle) => {
+/**
+ * Optimized grouping function using two-pass approach with pre-allocated arrays.
+ * This eliminates the performance cost of dynamic array growth.
+ * @param {Bundle[]} bundles - Array of bundles to group
+ * @param {function(Bundle): (string|string[]|null)} groupByFn - Function to determine group key(s) for each bundle
+ * @returns {Object<string, Bundle[]>} Grouped bundles
+ */
+function groupBundlesOptimized(bundles, groupByFn) {
+  // Pass 1: Count bundles per group to determine array sizes
+  const counts = {};
+
+  for (let i = 0; i < bundles.length; i += 1) {
+    const bundle = bundles[i];
     const key = groupByFn(bundle);
-    if (!key) return acc;
+    if (!key) continue; // eslint-disable-line no-continue
+
     if (Array.isArray(key)) {
-      key.forEach((k) => {
-        if (!acc[k]) acc[k] = [];
-        acc[k].push(bundle);
-      });
-      return acc;
+      for (let j = 0; j < key.length; j += 1) {
+        const k = key[j];
+        counts[k] = (counts[k] || 0) + 1;
+      }
+    } else {
+      counts[key] = (counts[key] || 0) + 1;
     }
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(bundle);
-    return acc;
-  };
+  }
+
+  // Pass 2: Pre-allocate arrays and fill them
+  const result = {};
+  const indices = {};
+
+  // Pre-allocate all arrays
+  const keys = Object.keys(counts);
+  for (let i = 0; i < keys.length; i += 1) {
+    const k = keys[i];
+    result[k] = new Array(counts[k]);
+    indices[k] = 0;
+  }
+
+  // Fill arrays
+  for (let i = 0; i < bundles.length; i += 1) {
+    const bundle = bundles[i];
+    const key = groupByFn(bundle);
+    if (!key) continue; // eslint-disable-line no-continue
+
+    if (Array.isArray(key)) {
+      for (let j = 0; j < key.length; j += 1) {
+        const k = key[j];
+        result[k][indices[k]] = bundle;
+        indices[k] += 1;
+      }
+    } else {
+      result[key][indices[key]] = bundle;
+      indices[key] += 1;
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -459,6 +522,14 @@ export class DataChunks {
     this.facetsIn = {};
     // memoziaton
     this.memo = {};
+    // cache for facet function results: WeakMap<bundle, Map<attributeName, cachedValue>>
+    this.facetValueCache = new WeakMap();
+    // cache statistics for performance measurement
+    this.cacheStats = {
+      hits: 0,
+      misses: 0,
+      setUsage: 0, // count of times cached Set was used
+    };
   }
 
   /**
@@ -580,13 +651,76 @@ export class DataChunks {
       return this.facetFns[facetName];
     };
     const skipFilterFn = ([facetName]) => !skipped.includes(facetName);
-    const valuesExtractorFn = (attributeName, bundle, parent) => {
+    const valuesExtractorFn = (attributeName, bundle, parent, asSet = false) => {
+      // Optimized cache access with pre-initialization check elimination
+      let bundleCache = parent.facetValueCache.get(bundle);
+      if (bundleCache === undefined) {
+        // First access to this bundle - create and populate cache
+        bundleCache = new Map();
+        parent.facetValueCache.set(bundle, bundleCache);
+        parent.cacheStats.misses += 1;
+        if (asSet) {
+          parent.cacheStats.setUsage += 1;
+        }
+        const facetValue = parent.facetFns[attributeName](bundle);
+        const array = Array.isArray(facetValue) ? facetValue : [facetValue];
+        const set = new Set(array);
+        bundleCache.set(attributeName, { array, set });
+        return asSet ? set : array;
+      }
+
+      // Cache hit path - check if attribute is cached
+      const cached = bundleCache.get(attributeName);
+      if (cached !== undefined) {
+        parent.cacheStats.hits += 1;
+        if (asSet) {
+          parent.cacheStats.setUsage += 1;
+        }
+        // Return the requested format (array or Set)
+        return asSet ? cached.set : cached.array;
+      }
+
+      // Attribute not yet cached for this bundle
+      parent.cacheStats.misses += 1;
+      if (asSet) {
+        parent.cacheStats.setUsage += 1;
+      }
       const facetValue = parent.facetFns[attributeName](bundle);
-      return Array.isArray(facetValue) ? facetValue : [facetValue];
+      const array = Array.isArray(facetValue) ? facetValue : [facetValue];
+      const set = new Set(array);
+      bundleCache.set(attributeName, { array, set });
+      return asSet ? set : array;
     };
     const combinerExtractorFn = (attributeName, parent) => parent.facetCombiners[attributeName] || 'some';
     // eslint-disable-next-line max-len
     return this.applyFilter(bundles, filterSpec, skipFilterFn, existenceFilterFn, valuesExtractorFn, combinerExtractorFn);
+  }
+
+  /**
+   * Calculate filter selectivity score. Lower scores = more selective = evaluated first.
+   * Uses actual facet bundle counts when available, falling back to desiredValues.length.
+   * @private
+   * @param {string} attributeName the filter attribute name
+   * @param {string[]} desiredValues the filter values
+   * @returns {number} selectivity score (lower = more selective)
+   */
+  calculateFilterSelectivity(attributeName, desiredValues) {
+    // Try to use actual facet counts if facets have been computed
+    if (this.facetsIn && Array.isArray(this.facetsIn[attributeName])) {
+      const facetValues = this.facetsIn[attributeName];
+      // Build a Map for O(1) facet value lookup
+      const facetValueMap = new Map(facetValues.map((f) => [f.value, f]));
+      // Sum the count of bundles matching the desired facet values
+      const totalCount = desiredValues.reduce((sum, desiredValue) => {
+        const facet = facetValueMap.get(desiredValue);
+        return sum + (facet ? facet.count : 0);
+      }, 0);
+      // Return total count as selectivity score (lower count = more selective)
+      return totalCount;
+    }
+    // Fallback: use desiredValues.length as a heuristic
+    // (fewer values = more selective)
+    return desiredValues.length;
   }
 
   /**
@@ -605,37 +739,59 @@ export class DataChunks {
   // eslint-disable-next-line max-len
   applyFilter(bundles, filterSpec, skipFilterFn, existenceFilterFn, valuesExtractorFn, combinerExtractorFn) {
     try {
+      // Pre-compute combiner/negator pairs for each filter attribute
+      // This avoids recreating the lookup tables for every bundle in the hot loop
       const filterBy = Object.entries(filterSpec)
         .filter(skipFilterFn)
         .filter(([, desiredValues]) => desiredValues.length)
-        .filter(existenceFilterFn);
-      return bundles.filter((bundle) => filterBy.every(([attributeName, desiredValues]) => {
-        const actualValues = valuesExtractorFn(attributeName, bundle, this);
+        .filter(existenceFilterFn)
+        // Sort filters by selectivity to enable early short-circuit exit in .every()
+        // Selectivity is calculated using actual facet counts when available,
+        // falling back to desiredValues.length as a heuristic
+        .sort(([attrA, valuesA], [attrB, valuesB]) => {
+          // Calculate selectivity score for each filter
+          const selectivityA = this.calculateFilterSelectivity(attrA, valuesA);
+          const selectivityB = this.calculateFilterSelectivity(attrB, valuesB);
+          return selectivityA - selectivityB;
+        })
+        .map(([attributeName, desiredValues]) => {
+          const combinerPreference = combinerExtractorFn(attributeName, this);
+          const combiner = COMBINERS[combinerPreference];
+          const negator = NEGATORS[combinerPreference];
 
-        const combiners = {
-          // if some elements match, then return true (partial inclusion)
-          some: 'some',
-          // if some elements do not match, then return true (partial exclusion)
-          none: 'some',
-          // if every element matches, then return true (full inclusion)
-          every: 'every',
-          // if every element does not match, then return true (full exclusion)
-          never: 'every',
-        };
+          // Pre-build Set from desiredValues for O(1) lookups
+          // This Set is reused across all bundles, eliminating repeated Set construction
+          const desiredValuesSet = new Set(desiredValues);
 
-        const negators = {
-          some: (value) => value,
-          every: (value) => value,
-          none: (value) => !value,
-          never: (value) => !value,
-        };
-        // this can be some, every, or none
-        const combinerprefence = combinerExtractorFn(attributeName, this);
+          // Track whether this filter uses negation (none/never preferences)
+          const isNegated = combinerPreference === 'none' || combinerPreference === 'never';
 
-        const combiner = combiners[combinerprefence];
-        const negator = negators[combinerprefence];
+          return [
+            attributeName,
+            desiredValues,
+            desiredValuesSet,
+            combiner,
+            negator,
+            isNegated,
+          ];
+        });
+      return bundles.filter((bundle) => filterBy.every(([attributeName, desiredValues, desiredValuesSet, combiner, negator, isNegated]) => {
+        // Optimization: For 'some' combiner WITHOUT negation, we can flip the iteration direction
+        // and use the pre-built desiredValuesSet for O(1) lookups
+        // Original: desiredValues.some(v => actualValues.includes(v)) - O(n * m)
+        // Optimized: actualValues.some(v => desiredValuesSet.has(v)) - O(n)
+        // Note: Cannot flip for negation because semantics differ:
+        //   - "exists desired NOT in actual" !== "exists actual NOT in desired"
+        if (combiner === 'some' && !isNegated) {
+          const actualValues = valuesExtractorFn(attributeName, bundle, this);
+          return actualValues[combiner]((value) => negator(desiredValuesSet.has(value)));
+        }
 
-        return desiredValues[combiner]((value) => negator(actualValues.includes(value)));
+        // For 'every' combiner or negated 'some', we cannot flip the logic
+        // So we use the cached Set from actualValues for O(1) lookups
+        // This is better than the original O(n) includes() for each desired value
+        const actualValuesSet = valuesExtractorFn(attributeName, bundle, this, true);
+        return desiredValues[combiner]((value) => negator(actualValuesSet.has(value)));
       }));
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -663,9 +819,45 @@ export class DataChunks {
       return this.facetFns[facetName];
     };
     const skipFilterFn = () => true;
-    const valuesExtractorFn = (attributeName, bundle, parent) => {
+    const valuesExtractorFn = (attributeName, bundle, parent, asSet = false) => {
+      // Optimized cache access with pre-initialization check elimination
+      let bundleCache = parent.facetValueCache.get(bundle);
+      if (bundleCache === undefined) {
+        // First access to this bundle - create and populate cache
+        bundleCache = new Map();
+        parent.facetValueCache.set(bundle, bundleCache);
+        parent.cacheStats.misses += 1;
+        if (asSet) {
+          parent.cacheStats.setUsage += 1;
+        }
+        const facetValue = parent.facetFns[attributeName](bundle);
+        const array = Array.isArray(facetValue) ? facetValue : [facetValue];
+        const set = new Set(array);
+        bundleCache.set(attributeName, { array, set });
+        return asSet ? set : array;
+      }
+
+      // Cache hit path - check if attribute is cached
+      const cached = bundleCache.get(attributeName);
+      if (cached !== undefined) {
+        parent.cacheStats.hits += 1;
+        if (asSet) {
+          parent.cacheStats.setUsage += 1;
+        }
+        // Return the requested format (array or Set)
+        return asSet ? cached.set : cached.array;
+      }
+
+      // Attribute not yet cached for this bundle
+      parent.cacheStats.misses += 1;
+      if (asSet) {
+        parent.cacheStats.setUsage += 1;
+      }
       const facetValue = parent.facetFns[attributeName](bundle);
-      return Array.isArray(facetValue) ? facetValue : [facetValue];
+      const array = Array.isArray(facetValue) ? facetValue : [facetValue];
+      const set = new Set(array);
+      bundleCache.set(attributeName, { array, set });
+      return asSet ? set : array;
     };
     const combinerExtractorFn = () => combiner || 'every';
 
@@ -682,6 +874,22 @@ export class DataChunks {
   filterBy(filterSpec) {
     this.filter = filterSpec;
     return this.filtered;
+  }
+
+  /**
+   * Get cache statistics for performance monitoring.
+   * @returns {Object} Object containing cache hits, misses, hit rate, and Set usage count
+   */
+  getCacheStats() {
+    const total = this.cacheStats.hits + this.cacheStats.misses;
+    const hitRate = total > 0 ? (this.cacheStats.hits / total * 100).toFixed(2) : 0;
+    return {
+      hits: this.cacheStats.hits,
+      misses: this.cacheStats.misses,
+      total,
+      hitRate: `${hitRate}%`,
+      setUsage: this.cacheStats.setUsage,
+    };
   }
 
   get filtered() {
@@ -708,10 +916,10 @@ export class DataChunks {
    * bundle will be skipped.
    * @param {groupByFn} groupByFn for each object, determine the group key
    * @returns {Object<string, Bundle[]>} grouped data, each key is a group
-   * and each vaule is an array of bundles
+   * and each value is an array of bundles
    */
   group(groupByFn) {
-    this.groupedIn = this.filtered.reduce(groupFn(groupByFn), {});
+    this.groupedIn = groupBundlesOptimized(this.filtered, groupByFn);
     if (groupByFn.fillerFn) {
       // fill in the gaps, as sometimes there is no data for a group
       // so we need to add an empty array for that group
@@ -854,26 +1062,27 @@ export class DataChunks {
           // so that we can show all values, not just the ones that do not match
           skipped.push(`${facetName}!`);
         }
-        const groupedByFacetIn = this
+        const groupedByFacetIn = groupBundlesOptimized(
           // we filter the bundles by all active filters,
           // except for the current facet (we want to see)
           // all values here.
-          .filterBundles(
+          this.filterBundles(
             this.bundles,
             this.filters,
             skipped,
-          )
-          .reduce(groupFn(facetValueFn), {});
+          ),
+          facetValueFn,
+        );
 
         // eslint-disable-next-line no-param-reassign
         accOuter[facetName] = Object.entries(groupedByFacetIn)
           .reduce((accInner, [facetValue, bundles]) => {
             accInner.push(bundles
               .reduce(f, new Facet(this, facetValue, facetName)));
-            // sort the entries by weight, descending
-            accInner.sort((left, right) => right.weight - left.weight);
             return accInner;
-          }, []);
+          }, [])
+          // sort the entries by weight, descending (once after reduce completes)
+          .sort((left, right) => right.weight - left.weight);
         return accOuter;
       }, {});
     return this.facetsIn;
