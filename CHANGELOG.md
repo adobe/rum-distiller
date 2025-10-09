@@ -1,3 +1,28 @@
+# [1.20.0](https://github.com/adobe/rum-distiller/compare/v1.19.1...v1.20.0) (2025-10-09)
+
+
+### Bug Fixes
+
+* cache facet values in valuesExtractorFn to eliminate redundant calls ([e871edb](https://github.com/adobe/rum-distiller/commit/e871edbda3cc48176902d54df8ff4870c1a1f03b)), closes [#1](https://github.com/adobe/rum-distiller/issues/1)
+* **docs:** better jsdocs ([78c9346](https://github.com/adobe/rum-distiller/commit/78c93460e9a836e4eba86a5b1868e114c8680e61))
+* **docs:** typo ([b12c2a9](https://github.com/adobe/rum-distiller/commit/b12c2a934d8595c8fbc4dad3777faad1f53466ee))
+* optimize filterBy.every() with selectivity-based reordering ([8e22fd9](https://github.com/adobe/rum-distiller/commit/8e22fd927e2505a9232017b550d0024b3c647d0a)), closes [#5](https://github.com/adobe/rum-distiller/issues/5)
+* use cached Set for actualValues in filter operations ([283eca8](https://github.com/adobe/rum-distiller/commit/283eca893af8e8253fdd9f568b5759a7f91b3229))
+
+
+### Features
+
+* **data-filtering:** add caching with array and Set formats for facet values ([b300ea8](https://github.com/adobe/rum-distiller/commit/b300ea8f21cd2039d2c962004353e76023ed53b7))
+
+
+### Performance Improvements
+
+* hoist static objects out of applyFilter hot loop ([814b703](https://github.com/adobe/rum-distiller/commit/814b703eada5a6910269e5ab36e116493903735d)), closes [#3](https://github.com/adobe/rum-distiller/issues/3)
+* move sort outside reduce loop in facet computation ([5d79d0c](https://github.com/adobe/rum-distiller/commit/5d79d0ce98dfdce0fc25945318c82aa0c63c85f1))
+* optimize facetValueCache for reduced lookup overhead ([c043afb](https://github.com/adobe/rum-distiller/commit/c043afbaba96ac22355abbe74f7200d3e91d4a41))
+* optimize filterBy with pre-built Sets for desiredValues ([ef72570](https://github.com/adobe/rum-distiller/commit/ef7257000dc1e7ec5c9a19f82f92e5a274ac0486))
+* optimize grouping with pre-allocated arrays ([ba5a731](https://github.com/adobe/rum-distiller/commit/ba5a73147ad87b625897c739ebbbf31940c57cbf)), closes [#4](https://github.com/adobe/rum-distiller/issues/4)
+
 ## [1.19.1](https://github.com/adobe/rum-distiller/compare/v1.19.0...v1.19.1) (2025-10-07)
 
 
