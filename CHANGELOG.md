@@ -1,3 +1,10 @@
+## [1.20.1](https://github.com/adobe/rum-distiller/compare/v1.20.0...v1.20.1) (2025-10-16)
+
+
+### Bug Fixes
+
+* update semantic-release to v25 and node to 24.x for OIDC ([36582d4](https://github.com/adobe/rum-distiller/commit/36582d45c75e7ff788d76cec4d64dc9c118a04fb))
+
 # [1.20.0](https://github.com/adobe/rum-distiller/compare/v1.19.1...v1.20.0) (2025-10-09)
 
 
