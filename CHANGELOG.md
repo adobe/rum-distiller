@@ -1,3 +1,10 @@
+## [1.20.7](https://github.com/adobe/rum-distiller/compare/v1.20.6...v1.20.7) (2025-10-17)
+
+
+### Bug Fixes
+
+* test npm OIDC trusted publisher configuration ([7b55c58](https://github.com/adobe/rum-distiller/commit/7b55c5890e2f7fa950c9128108f92e440c7e0a2e))
+
 ## [1.20.6](https://github.com/adobe/rum-distiller/compare/v1.20.5...v1.20.6) (2025-10-17)
 
 
