@@ -1,3 +1,10 @@
+## [1.20.8](https://github.com/adobe/rum-distiller/compare/v1.20.7...v1.20.8) (2025-10-17)
+
+
+### Bug Fixes
+
+* add repository field to package.json for npm provenance validation ([4b0b886](https://github.com/adobe/rum-distiller/commit/4b0b8866be586451b753162591fa0d36092d6320))
+
 ## [1.20.7](https://github.com/adobe/rum-distiller/compare/v1.20.6...v1.20.7) (2025-10-17)
 
 
