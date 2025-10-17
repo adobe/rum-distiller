@@ -1,3 +1,10 @@
+## [1.20.6](https://github.com/adobe/rum-distiller/compare/v1.20.5...v1.20.6) (2025-10-17)
+
+
+### Bug Fixes
+
+* use GITHUB_TOKEN for OIDC authentication ([2bd4467](https://github.com/adobe/rum-distiller/commit/2bd4467bd8887de4242ef7f0b06b500530a8fa66))
+
 ## [1.20.5](https://github.com/adobe/rum-distiller/compare/v1.20.4...v1.20.5) (2025-10-17)
 
 
