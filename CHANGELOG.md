@@ -1,3 +1,10 @@
+## [1.20.5](https://github.com/adobe/rum-distiller/compare/v1.20.4...v1.20.5) (2025-10-17)
+
+
+### Bug Fixes
+
+* move OIDC permissions to release job level ([9c27855](https://github.com/adobe/rum-distiller/commit/9c27855595ae6bcefbf2c49e6b1579736e34c0d7))
+
 ## [1.20.4](https://github.com/adobe/rum-distiller/compare/v1.20.3...v1.20.4) (2025-10-17)
 
 
