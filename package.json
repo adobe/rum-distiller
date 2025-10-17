@@ -12,6 +12,10 @@
   "type": "module",
   "main": "index.js",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adobe/rum-distiller.git"
+  },
   "devDependencies": {
     "@adobe/eslint-config-helix": "3.0.12",
     "@esm-bundle/chai": "4.3.4-fix.0",
