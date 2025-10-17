@@ -1,3 +1,10 @@
+## [1.20.4](https://github.com/adobe/rum-distiller/compare/v1.20.3...v1.20.4) (2025-10-17)
+
+
+### Bug Fixes
+
+* configure provenance in plugin config instead of env var ([#90](https://github.com/adobe/rum-distiller/issues/90)) ([a421cb7](https://github.com/adobe/rum-distiller/commit/a421cb768148ece16d078dc7ef638366da5d0760))
+
 ## [1.20.3](https://github.com/adobe/rum-distiller/compare/v1.20.2...v1.20.3) (2025-10-17)
 
 
