@@ -1,3 +1,10 @@
+## [1.20.2](https://github.com/adobe/rum-distiller/compare/v1.20.1...v1.20.2) (2025-10-17)
+
+
+### Bug Fixes
+
+* enable npm provenance to fix 2FA publish error ([#88](https://github.com/adobe/rum-distiller/issues/88)) ([702763c](https://github.com/adobe/rum-distiller/commit/702763ce8701b5228210e7a3f4d4306a7355995b))
+
 ## [1.20.1](https://github.com/adobe/rum-distiller/compare/v1.20.0...v1.20.1) (2025-10-16)
 
 
