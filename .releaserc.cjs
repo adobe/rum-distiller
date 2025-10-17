@@ -7,7 +7,7 @@ module.exports = {
     }],
     ["@semantic-release/npm", {
       "npmPublish": true,
-      "pkgRoot": ".",
+      "provenance": true
     }],
     ["@semantic-release/git", {
       "assets": [
