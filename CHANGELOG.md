@@ -1,3 +1,10 @@
+## [1.20.3](https://github.com/adobe/rum-distiller/compare/v1.20.2...v1.20.3) (2025-10-17)
+
+
+### Bug Fixes
+
+* upgrade @semantic-release/npm to v13 for OIDC support ([#89](https://github.com/adobe/rum-distiller/issues/89)) ([3eefae8](https://github.com/adobe/rum-distiller/commit/3eefae88e5dae9d68c2385ef9a7e80ecbe29d82d))
+
 ## [1.20.2](https://github.com/adobe/rum-distiller/compare/v1.20.1...v1.20.2) (2025-10-17)
 
 
