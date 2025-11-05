@@ -1081,8 +1081,19 @@ export class DataChunks {
               .reduce(f, new Facet(this, facetValue, facetName)));
             return accInner;
           }, [])
-          // sort the entries by weight, descending (once after reduce completes)
-          .sort((left, right) => right.weight - left.weight);
+          // sort the entries by weight desc, then count desc, then value asc (once after reduce)
+          .sort((left, right) => {
+            // Primary: sort by weight descending
+            if (right.weight !== left.weight) {
+              return right.weight - left.weight;
+            }
+            // Secondary: sort by count descending (more bundles first)
+            if (right.count !== left.count) {
+              return right.count - left.count;
+            }
+            // Tertiary: sort by value alphabetically ascending (for stable deterministic order)
+            return left.value.localeCompare(right.value);
+          });
         return accOuter;
       }, {});
     return this.facetsIn;

@@ -230,8 +230,9 @@ describe('facets:enterSource', () => {
     assert.equal(d.facets.enterSource.length, 44);
 
     assert.equal(d.facets.enterSource[0].value, 'search'); // all search engines
-    assert.equal(d.facets.enterSource[1].value, 'search:google'); // google search
-    assert.equal(d.facets.enterSource[2].value, '*:google'); // all google properties
+    // Note: *:google and search:google have equal weight/count, so they're sorted alphabetically
+    assert.equal(d.facets.enterSource[1].value, '*:google'); // all google properties (alphabetically first)
+    assert.equal(d.facets.enterSource[2].value, 'search:google'); // google search (alphabetically second)
     assert.equal(d.facets.enterSource[3].value, 'https://www.google.com/'); // that one specific google page
   });
 });
