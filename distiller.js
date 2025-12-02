@@ -218,7 +218,6 @@ class Aggregate {
     const index = Math.floor((p / 100) * sorted.length);
     return sorted[index];
   }
-
 }
 
 class InterpolatedAggregate {
