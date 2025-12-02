@@ -2423,8 +2423,8 @@ describe('Aggregate parent, share, and percentage', () => {
     const { totals } = d;
 
     // Median should equal the 50th percentile
-    assert.equal(totals.toptime.median(), 600);
-    assert.equal(totals.toptime.median(), totals.toptime.percentile(50));
+    assert.equal(totals.toptime.median, 600);
+    assert.equal(totals.toptime.median, totals.toptime.percentile(50));
   });
 
   it('should calculate variance and stddev correctly', () => {

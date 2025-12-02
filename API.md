@@ -335,6 +335,9 @@ Each result will be an object with the following properties:
 - min
 - max
 - mean
+- stddev
+- stderr
+- median
 - percentile(p)
 
 **Kind**: instance property of [<code>DataChunks</code>](#DataChunks)  

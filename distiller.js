@@ -190,6 +190,10 @@ class Aggregate {
     return this.sum / this.count;
   }
 
+  get median() {
+    return this.percentile(50);
+  }
+
   get variance() {
     if (this.values.length === 0) return 0;
     const { mean } = this;
@@ -215,9 +219,6 @@ class Aggregate {
     return sorted[index];
   }
 
-  median() {
-    return this.percentile(50);
-  }
 }
 
 class InterpolatedAggregate {
@@ -967,6 +968,9 @@ export class DataChunks {
    * - min
    * - max
    * - mean
+   * - stddev
+   * - stderr
+   * - median
    * - percentile(p)
    * @returns {Object<string, Totals>} series data
    */
