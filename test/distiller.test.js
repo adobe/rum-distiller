@@ -2397,6 +2397,229 @@ describe('Aggregate parent, share, and percentage', () => {
     assert.equal(totals.toptime.percentile(90), 1000); // 90th percentile
     assert.equal(totals.toptime.percentile(99), 1000); // 99th percentile
   });
+
+  it('should calculate median correctly', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: Array.from({ length: 10 }, (_, i) => ({
+          id: `bundle-${i}`,
+          host: 'www.aem.live',
+          time: '2024-05-06T00:00:04.444Z',
+          timeSlot: '2024-05-06T00:00:00.000Z',
+          url: 'https://www.aem.live/page1',
+          userAgent: 'desktop:windows',
+          weight: 100,
+          events: [{ checkpoint: 'top', timeDelta: (i + 1) * 100 }], // 100, 200, 300, ..., 1000
+        })),
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addSeries('toptime', (bundle) => bundle.events.find((e) => e.checkpoint === 'top')?.timeDelta);
+
+    const { totals } = d;
+
+    // Median should equal the 50th percentile
+    assert.equal(totals.toptime.median(), 600);
+    assert.equal(totals.toptime.median(), totals.toptime.percentile(50));
+  });
+
+  it('should calculate variance and stddev correctly', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'bundle-1',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 10 }],
+          },
+          {
+            id: 'bundle-2',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 20 }],
+          },
+          {
+            id: 'bundle-3',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 30 }],
+          },
+          {
+            id: 'bundle-4',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 40 }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addSeries('toptime', (bundle) => bundle.events.find((e) => e.checkpoint === 'top')?.timeDelta);
+
+    const { totals } = d;
+
+    // Mean of [10, 20, 30, 40] = 25
+    assert.equal(totals.toptime.mean, 25);
+
+    // Variance = ((10-25)^2 + (20-25)^2 + (30-25)^2 + (40-25)^2) / 4
+    //          = (225 + 25 + 25 + 225) / 4
+    //          = 500 / 4 = 125
+    assert.equal(totals.toptime.variance, 125);
+
+    // Standard deviation = sqrt(125) ≈ 11.180339887498949
+    assert.equal(totals.toptime.stddev, Math.sqrt(125));
+  });
+
+  it('should handle empty values array for variance and stddev', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'bundle-1',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [], // No events, so no values will be collected
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    // Add a series that will return undefined (no values)
+    d.addSeries('toptime', (bundle) => bundle.events.find((e) => e.checkpoint === 'top')?.timeDelta);
+
+    const { totals } = d;
+
+    // Variance and stddev should be 0 for empty values array
+    assert.equal(totals.toptime.variance, 0);
+    assert.equal(totals.toptime.stddev, 0);
+  });
+
+  it('should calculate standard error (stderr) correctly', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'bundle-1',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 10 }],
+          },
+          {
+            id: 'bundle-2',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 20 }],
+          },
+          {
+            id: 'bundle-3',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 30 }],
+          },
+          {
+            id: 'bundle-4',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 40 }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addSeries('toptime', (bundle) => bundle.events.find((e) => e.checkpoint === 'top')?.timeDelta);
+
+    const { totals } = d;
+
+    // Standard error = stddev / sqrt(n)
+    // stddev = sqrt(125) ≈ 11.180339887498949
+    // n = 4
+    // stderr = 11.180339887498949 / sqrt(4) = 11.180339887498949 / 2 = 5.590169943749474
+    const expectedStderr = Math.sqrt(125) / Math.sqrt(4);
+    assert.equal(totals.toptime.stderr, expectedStderr);
+  });
+
+  it('should return 0 for stderr with empty values array', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'bundle-1',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [], // No events
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addSeries('toptime', (bundle) => bundle.events.find((e) => e.checkpoint === 'top')?.timeDelta);
+
+    const { totals } = d;
+
+    // stderr should be 0 for empty values array
+    assert.equal(totals.toptime.stderr, 0);
+  });
 });
 
 describe('DataChunks.addHistogramFacet() edge cases', () => {
