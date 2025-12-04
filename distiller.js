@@ -1092,30 +1092,27 @@ export class DataChunks {
   }
 
   /**
-   * Returns estimator results for a given facet and series.
-   * Example: dc.estimators('plainURL', 'pageViews').chao1
-   * @param {string} facetName name passed to addFacet
-   * @param {string} seriesName name passed to addSeries
-   * @param {{positiveOnly?: boolean}} [options]
+   * Estimators computed over facet value observation counts (bundle counts).
+   * Usage: dc.estimators.plainURL.chao1
    */
-  estimators(facetName, seriesName, options = {}) {
-    const { positiveOnly = true } = options;
-    const facetArray = this.facets[facetName];
-    if (!facetArray) {
-      throw new Error(`Unknown facet: ${facetName}`);
-    }
-    const seriesFn = this.series[seriesName];
-    if (!seriesFn) {
-      throw new Error(`Unknown series: ${seriesName}`);
-    }
-    const perValueSamples = facetArray
-      .map((facet) => facet.entries.reduce((acc, b) => {
-        const v = seriesFn(b);
-        if (v === undefined) return acc;
-        return acc + (positiveOnly ? (v > 0 ? 1 : 0) : 1);
-      }, 0))
-      .filter((n) => n > 0);
-    const est = chao1CI(perValueSamples);
-    return { chao1: est };
+  get estimators() {
+    const parent = this;
+    const container = {};
+    const facetNames = Object.keys(parent.facets);
+    facetNames.forEach((facetName) => {
+      Object.defineProperty(container, facetName, {
+        enumerable: true,
+        configurable: true,
+        get() {
+          const facetArray = parent.facets[facetName] || [];
+          const perValueSamples = facetArray
+            .map((facet) => facet.entries.length)
+            .filter((n) => n > 0);
+          const est = chao1CI(perValueSamples);
+          return { chao1: est };
+        },
+      });
+    });
+    return container;
   }
 }

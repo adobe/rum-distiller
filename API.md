@@ -17,10 +17,10 @@ each series can be registered with a name using <code>DataChunks.addSeries(name,
 
 ## Estimators
 
-- DataChunks.estimators(facetName, seriesName, { positiveOnly = true }) ⇒ { chao1 }
-  - Computes per‑value sample counts for the given facet using the series function and returns a Chao1 estimate object.
-  - chao1 fields: { sObs, sHat, sUnseen, f1, f2, variance, ci: [lo, hi], darkCI: [lo, hi] }.
-  - Example: `dc.estimators('plainURL', 'pageViews').chao1`.
+- `DataChunks.estimators.<facetName>.chao1`
+  - Computes Chao1 using raw bundle counts per facet value (independent observations), not weighted totals.
+  - Fields: { sObs, sHat, sUnseen, f1, f2, variance, ci: [lo, hi], darkCI: [lo, hi] }.
+  - Example: `dc.estimators.plainURL.chao1`.
 
 For direct use without DataChunks, see [src/estimators/README.md](src/estimators/README.md) and import from `src/estimators/chao1.js`.
 

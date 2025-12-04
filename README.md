@@ -9,8 +9,8 @@ aggregations for the series.
 When sampling hides low‑traffic pages, you can estimate the total number of URLs that received ≥1 visit using a classical unseen‑species estimator (Chao1), plus a 95% CI.
 
 - Inline API:
-  - `dc.estimators('plainURL', 'pageViews').chao1` returns `{ sObs, sHat, sUnseen, f1, f2, ci, darkCI }` for the current filters/window.
-  - Works with any facet/series pair you’ve registered.
+  - `dc.estimators.plainURL.chao1` returns `{ sObs, sHat, sUnseen, f1, f2, ci, darkCI }` for the current filters/window.
+  - Uses raw bundle counts (independent observations), not weighted totals.
 
 - Direct functions (for raw rows or custom flows):
   - `import { chao1, chao1CI, inferSamplesFromCI, estimateDarkMatterFromCI, estimateDarkMatterFromCIWithCI } from './src/estimators/chao1.js'`

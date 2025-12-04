@@ -36,14 +36,13 @@ describe('facets:userAgent', () => {
     // most common user agent is desktop
     assert.equal(d.facets.userAgent[0].value, 'desktop');
 
-    // estimators API returns Chao1 for a facet/series pair
-    const estUA = d.estimators('userAgent', 'pageViews').chao1;
+    // estimators API returns Chao1 per facet (bundle counts)
+    const estUA = d.estimators.userAgent.chao1;
     assert.ok(typeof estUA.sObs === 'number');
     assert.ok(Array.isArray(estUA.ci));
 
-    // positiveOnly=false path executes
-    const estUAAll = d.estimators('userAgent', 'pageViews', { positiveOnly: false }).chao1;
-    assert.ok(estUAAll.sHat >= estUAAll.sObs);
+    // sanity check on values
+    assert.ok(estUA.sHat >= estUA.sObs);
   });
 });
 
@@ -122,7 +121,7 @@ describe('facets:plainURL', () => {
     assert.equal(d.facets.plainURL[0].value, 'https://www.aem.live/home');
 
     // chao1 estimates for plainURL facet
-    const estURL = d.estimators('plainURL', 'pageViews').chao1;
+    const estURL = d.estimators.plainURL.chao1;
     assert.ok(estURL.sHat >= estURL.sObs);
   });
 
@@ -131,8 +130,9 @@ describe('facets:plainURL', () => {
     d.load(testChunks);
     d.addSeries('pageViews', pageViews);
     d.addFacet('plainURL', facets.plainURL);
-    assert.throws(() => d.estimators('nope', 'pageViews'));
-    assert.throws(() => d.estimators('plainURL', 'nope'));
+    // Accessing a non-existent facet should be undefined on the container
+    // but not throw at definition time; computed getters evaluate on access
+    assert.equal(d.estimators.nope, undefined);
   });
 });
 
