@@ -1093,7 +1093,8 @@ export class DataChunks {
 
   /**
    * Estimators computed over facet value observation counts (bundle counts).
-   * Usage: dc.estimators.plainURL.chao1
+   * Usage: `dc.estimators.plainURL.chao1`.
+   * @returns {Object<string, { chao1: object }>} map-like object exposing a `chao1` estimate per facet name
    */
   get estimators() {
     const parent = this;

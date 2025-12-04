@@ -57,7 +57,7 @@ export function countsOfCounts(samples) {
  * - If f2 > 0: S_hat = S_obs + f1^2 / (2 f2)
  * - If f2 = 0: bias-corrected fallback S_hat = S_obs + f1 * (f1 - 1) / 2
  * @param {number[]} perUrlSamples Per-URL sample counts (m_i), m_i >= 1.
- * @returns {{S_obs:number,S_hat:number,S_unseen:number,f1:number,f2:number}}
+ * @returns {{sObs:number,sHat:number,sUnseen:number,f1:number,f2:number}}
  */
 export function chao1(perUrlSamples) {
   const sObs = perUrlSamples.filter((m) => Number.isFinite(m) && m > 0).length;
@@ -89,8 +89,9 @@ export function chao1(perUrlSamples) {
  * Uses the bias-corrected variance estimator (stable even when f2=0).
  * @param {number[]} perUrlSamples Per-URL sample counts (m_i), m_i >= 1.
  * @param {number} [z=1.96] z-score for the confidence level.
- * @returns {object} Chao1 estimate with fields
- * sObs, sHat, sUnseen, f1, f2, variance, ci, darkCI
+ * @returns {object} Chao1 estimate with fields:
+ * - sObs, sHat, sUnseen, f1, f2
+ * - variance, ci [lower, upper], darkCI [lower, upper]
  */
 export function chao1CI(perUrlSamples, z = 1.96) {
   const {
@@ -139,7 +140,7 @@ export function chao1CI(perUrlSamples, z = 1.96) {
 /**
  * Convenience: estimate unseen URLs from displayed (total, MOE) pairs.
  * @param {{total:number, moe:number}[]} items Array of per-URL entries that appear in the table.
- * @returns {{S_obs:number,S_hat:number,S_unseen:number,f1:number,f2:number, samples:number[]}}
+ * @returns {{sObs:number,sHat:number,sUnseen:number,f1:number,f2:number,samples:number[]}}
  */
 export function estimateDarkMatterFromCI(items) {
   const samples = items
@@ -153,6 +154,7 @@ export function estimateDarkMatterFromCI(items) {
  * Convenience: same as estimateDarkMatterFromCI, but also returns a CI.
  * @param {{total:number, moe:number}[]} items
  * @param {number} [z=1.96]
+ * @returns {object} Chao1 estimate (with CI) plus samples array
  */
 export function estimateDarkMatterFromCIWithCI(items, z = 1.96) {
   const samples = items
