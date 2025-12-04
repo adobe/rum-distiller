@@ -16,6 +16,7 @@
  * filtering, aggregating, and summarizing the data.
  */
 import { urlProducer } from './utils.js';
+import { chao1CI } from './src/estimators/chao1.js';
 
 // Static lookup tables for filter combiners and negators
 // Hoisted to module level to avoid recreating on every bundle filter iteration
@@ -1075,7 +1076,7 @@ export class DataChunks {
         );
 
         // eslint-disable-next-line no-param-reassign
-        accOuter[facetName] = Object.entries(groupedByFacetIn)
+        const facetArray = Object.entries(groupedByFacetIn)
           .reduce((accInner, [facetValue, bundles]) => {
             accInner.push(bundles
               .reduce(f, new Facet(this, facetValue, facetName)));
@@ -1083,8 +1084,38 @@ export class DataChunks {
           }, [])
           // sort the entries by weight, descending (once after reduce completes)
           .sort((left, right) => right.weight - left.weight);
+
+        accOuter[facetName] = facetArray;
         return accOuter;
       }, {});
     return this.facetsIn;
+  }
+
+  /**
+   * Returns estimator results for a given facet and series.
+   * Example: dc.estimators('plainURL', 'pageViews').chao1
+   * @param {string} facetName name passed to addFacet
+   * @param {string} seriesName name passed to addSeries
+   * @param {{positiveOnly?: boolean}} [options]
+   */
+  estimators(facetName, seriesName, options = {}) {
+    const { positiveOnly = true } = options;
+    const facetArray = this.facets[facetName];
+    if (!facetArray) {
+      throw new Error(`Unknown facet: ${facetName}`);
+    }
+    const seriesFn = this.series[seriesName];
+    if (!seriesFn) {
+      throw new Error(`Unknown series: ${seriesName}`);
+    }
+    const perValueSamples = facetArray
+      .map((facet) => facet.entries.reduce((acc, b) => {
+        const v = seriesFn(b);
+        if (v === undefined) return acc;
+        return acc + (positiveOnly ? (v > 0 ? 1 : 0) : 1);
+      }, 0))
+      .filter((n) => n > 0);
+    const est = chao1CI(perValueSamples);
+    return { chao1: est };
   }
 }

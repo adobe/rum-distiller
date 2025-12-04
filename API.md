@@ -15,6 +15,38 @@ each series can be registered with a name using <code>DataChunks.addSeries(name,
 <dd></dd>
 </dl>
 
+## Estimators
+
+- DataChunks.estimators(facetName, seriesName, { positiveOnly = true }) ⇒ { chao1 }
+  - Computes per‑value sample counts for the given facet using the series function and returns a Chao1 estimate object.
+  - chao1 fields: { sObs, sHat, sUnseen, f1, f2, variance, ci: [lo, hi], darkCI: [lo, hi] }.
+  - Example: `dc.estimators('plainURL', 'pageViews').chao1`.
+
+For direct use without DataChunks, see [src/estimators/README.md](src/estimators/README.md) and import from `src/estimators/chao1.js`.
+
+### Direct Estimators (Module API)
+
+Import from `src/estimators/chao1.js`:
+
+```
+import {
+  chao1,                // point estimate from per-URL sample counts
+  chao1CI,              // point + 95% CI
+  inferSamplesFromCI,   // invert (total, ±moe) -> samples
+  estimateDarkMatterFromCI,
+  estimateDarkMatterFromCIWithCI,
+  estimateSamplingRate,
+} from './src/estimators/chao1.js';
+```
+
+Quick example using (total, ±moe) rows from the explorer:
+
+```
+const items = rows.map(r => ({ total: r.total, moe: r.moe }));
+const res = estimateDarkMatterFromCIWithCI(items);
+console.log(res.sObs, Math.round(res.sHat), res.ci.map(Math.round));
+```
+
 ## Constants
 
 <dl>
@@ -1008,4 +1040,3 @@ A facet function takes a bundle and returns an array of facet values.
 | --- | --- | --- |
 | mean | <code>number</code> | the mean of a dataset |
 | variance | <code>number</code> | the variance of a dataset |
-

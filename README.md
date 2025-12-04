@@ -4,6 +4,19 @@ RUM Distiller is a JavaScript library for data exploration of Adobe RUM data. It
 the form of "series", "groups", and "facets". You can then filter the data based on the defined facets, and will automatically get data
 aggregations for the series.
 
+### Estimating “Dark Matter” URLs (Chao1)
+
+When sampling hides low‑traffic pages, you can estimate the total number of URLs that received ≥1 visit using a classical unseen‑species estimator (Chao1), plus a 95% CI.
+
+- Inline API:
+  - `dc.estimators('plainURL', 'pageViews').chao1` returns `{ sObs, sHat, sUnseen, f1, f2, ci, darkCI }` for the current filters/window.
+  - Works with any facet/series pair you’ve registered.
+
+- Direct functions (for raw rows or custom flows):
+  - `import { chao1, chao1CI, inferSamplesFromCI, estimateDarkMatterFromCI, estimateDarkMatterFromCIWithCI } from './src/estimators/chao1.js'`
+
+See algorithm details in [src/estimators/README.md](src/estimators/README.md).
+
 ## Concepts
 
 
