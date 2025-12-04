@@ -190,6 +190,29 @@ class Aggregate {
     return this.sum / this.count;
   }
 
+  get median() {
+    return this.percentile(50);
+  }
+
+  get variance() {
+    if (this.values.length === 0) return 0;
+    const { mean } = this;
+    let variance = 0;
+    for (let i = 0; i < this.values.length; i += 1) {
+      variance += (this.values[i] - mean) ** 2;
+    }
+    return variance / this.values.length;
+  }
+
+  get stddev() {
+    return Math.sqrt(this.variance);
+  }
+
+  get stderr() {
+    if (this.values.length === 0) return 0;
+    return this.stddev / Math.sqrt(this.values.length);
+  }
+
   percentile(p) {
     const sorted = this.values.sort((left, right) => left - right);
     const index = Math.floor((p / 100) * sorted.length);
@@ -944,6 +967,9 @@ export class DataChunks {
    * - min
    * - max
    * - mean
+   * - stddev
+   * - stderr
+   * - median
    * - percentile(p)
    * @returns {Object<string, Totals>} series data
    */

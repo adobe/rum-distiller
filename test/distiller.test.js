@@ -1953,3 +1953,786 @@ describe('DataChunks.addClusterFacet()', () => {
     assert.ok(mostOccurringCluster.value, '/developer');
   });
 });
+
+describe('DataChunks.addInterpolation()', () => {
+  it('should add an interpolated series based on other series', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 100 }],
+          },
+          {
+            id: 'two',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page2',
+            userAgent: 'desktop:mac',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 200 }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    // Add regular series
+    d.addSeries('pageViews', () => 1);
+    d.addSeries('toptime', (bundle) => bundle.events.find((e) => e.checkpoint === 'top')?.timeDelta);
+
+    // Add interpolated series that calculates average time per view
+    d.addInterpolation('avgTime', ['pageViews', 'toptime'], ({ pageViews, toptime }) => {
+      if (!pageViews || !toptime || pageViews.count === 0) return 0;
+      return toptime.sum / pageViews.count;
+    });
+
+    // Group by url
+    d.group((bundle) => bundle.url);
+
+    // Get aggregates
+    const { aggregates } = d;
+
+    // Check that interpolated series exists
+    assert.ok(aggregates['https://www.aem.live/page1'].avgTime);
+    assert.ok(aggregates['https://www.aem.live/page2'].avgTime);
+
+    // Check that interpolated values are correct
+    assert.equal(aggregates['https://www.aem.live/page1'].avgTime.weight, 100);
+    assert.equal(aggregates['https://www.aem.live/page2'].avgTime.weight, 200);
+  });
+
+  it('should handle NaN values in interpolated series', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top' }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addSeries('pageViews', () => 1);
+
+    // Add interpolation that returns NaN
+    d.addInterpolation('badCalc', ['pageViews'], () => NaN);
+
+    d.group((bundle) => bundle.url);
+
+    const { aggregates } = d;
+
+    // Weight should be 0 for NaN
+    assert.equal(aggregates['https://www.aem.live/page1'].badCalc.weight, 0);
+  });
+});
+
+describe('DataChunks.group() with fillerFn', () => {
+  it('should fill in missing groups', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T05:00:00.000Z',
+            timeSlot: '2024-05-06T05:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [],
+          },
+          {
+            id: 'two',
+            host: 'www.aem.live',
+            time: '2024-05-06T07:00:00.000Z',
+            timeSlot: '2024-05-06T07:00:00.000Z',
+            url: 'https://www.aem.live/page2',
+            userAgent: 'desktop:mac',
+            weight: 100,
+            events: [],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    // Create a grouping function with fillerFn
+    const groupByHour = (bundle) => bundle.timeSlot;
+    groupByHour.fillerFn = (existingGroups) => {
+      // Fill in missing hours between 5 and 8
+      const allHours = [
+        '2024-05-06T05:00:00.000Z',
+        '2024-05-06T06:00:00.000Z',
+        '2024-05-06T07:00:00.000Z',
+        '2024-05-06T08:00:00.000Z',
+      ];
+      return allHours;
+    };
+
+    const grouped = d.group(groupByHour);
+
+    // Should have all 4 hours, even though only 2 have data
+    assert.equal(Object.keys(grouped).length, 4);
+    assert.equal(grouped['2024-05-06T05:00:00.000Z'].length, 1);
+    assert.equal(grouped['2024-05-06T06:00:00.000Z'].length, 0); // empty but present
+    assert.equal(grouped['2024-05-06T07:00:00.000Z'].length, 1);
+    assert.equal(grouped['2024-05-06T08:00:00.000Z'].length, 0); // empty but present
+  });
+});
+
+describe('DataChunks.addHistogramFacet() with different step types', () => {
+  it('should create histogram with logarithmic steps', () => {
+    const d = new DataChunks();
+    d.load(chunks);
+
+    d.addFacet('pathlength', (bundle) => bundle.url.length);
+
+    d.addHistogramFacet('pathlengthHistogram', 'pathlength', {
+      count: 5,
+      min: 10,
+      max: 100,
+      steps: 'logarithmic',
+    });
+
+    const { facets } = d;
+
+    assert.ok(facets.pathlengthHistogram);
+    assert.ok(facets.pathlengthHistogram.length > 0);
+  });
+
+  it('should create histogram with quantile steps', () => {
+    const d = new DataChunks();
+    d.load(chunks);
+
+    d.addFacet('pathlength', (bundle) => bundle.url.length);
+
+    d.addHistogramFacet('pathlengthHistogram', 'pathlength', {
+      count: 5,
+      min: 0,
+      max: 200,
+      steps: 'quantiles',
+    });
+
+    const { facets } = d;
+
+    assert.ok(facets.pathlengthHistogram);
+    assert.ok(facets.pathlengthHistogram.length > 0);
+  });
+});
+
+describe('Facet.getMetrics()', () => {
+  it('should calculate metrics for specific series', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [
+              { checkpoint: 'top', timeDelta: 100 },
+              { checkpoint: 'click', timeDelta: 200 },
+            ],
+          },
+          {
+            id: 'two',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page2',
+            userAgent: 'desktop:mac',
+            weight: 100,
+            events: [
+              { checkpoint: 'top', timeDelta: 150 },
+              { checkpoint: 'click', timeDelta: 250 },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    // Add multiple series
+    d.addSeries('pageViews', () => 1);
+    d.addSeries('toptime', (bundle) => bundle.events.find((e) => e.checkpoint === 'top')?.timeDelta);
+    d.addSeries('clicktime', (bundle) => bundle.events.find((e) => e.checkpoint === 'click')?.timeDelta);
+
+    // Add a facet
+    d.addFacet('url', (bundle) => bundle.url);
+
+    const { facets } = d;
+
+    // Get the first facet
+    const firstFacet = facets.url[0];
+
+    // Test getMetrics with specific series
+    const metrics = firstFacet.getMetrics(['pageViews', 'toptime']);
+
+    assert.ok(metrics.pageViews);
+    assert.ok(metrics.toptime);
+    assert.ok(!metrics.clicktime); // Not requested
+
+    // Should use cached metrics on second call
+    const metrics2 = firstFacet.getMetrics(['pageViews', 'toptime', 'clicktime']);
+
+    assert.ok(metrics2.pageViews);
+    assert.ok(metrics2.toptime);
+    assert.ok(metrics2.clicktime); // Now included
+  });
+
+  it('should return empty object when no series specified', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addFacet('url', (bundle) => bundle.url);
+
+    const { facets } = d;
+    const firstFacet = facets.url[0];
+
+    const metrics = firstFacet.getMetrics([]);
+    assert.deepEqual(metrics, {});
+  });
+
+  it('should use the metrics getter', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 100 }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addSeries('pageViews', () => 1);
+    d.addFacet('url', (bundle) => bundle.url);
+
+    const { facets } = d;
+    const firstFacet = facets.url[0];
+
+    // Use the metrics getter
+    const metrics = firstFacet.metrics;
+
+    assert.ok(metrics.pageViews);
+    assert.equal(metrics.pageViews.count, 1);
+  });
+});
+
+describe('Aggregate parent, share, and percentage', () => {
+  it('should return null for share and percentage when no parent', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 100 }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addSeries('toptime', (bundle) => bundle.events.find((e) => e.checkpoint === 'top')?.timeDelta);
+    
+    // Group by a constant to create a single aggregate with a self-referencing parent
+    d.group(() => 'all');
+
+    // Get totals which creates aggregates with self-referencing parents
+    const { totals } = d;
+
+    // Modify the parent provider to return null
+    const originalParentProvider = totals.toptime.parentProvider;
+    totals.toptime.parentProvider = () => null;
+
+    // share and percentage should return null when no parent
+    assert.equal(totals.toptime.share, null);
+    assert.equal(totals.toptime.percentage, null);
+
+    // Restore parent provider
+    totals.toptime.parentProvider = originalParentProvider;
+  });
+
+  it('should access parent via parentProvider', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 100 }],
+          },
+          {
+            id: 'two',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page2',
+            userAgent: 'desktop:mac',
+            weight: 200,
+            events: [{ checkpoint: 'top', timeDelta: 200 }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addSeries('toptime', (bundle) => bundle.events.find((e) => e.checkpoint === 'top')?.timeDelta);
+
+    // Group by url to get aggregates with parents
+    d.group((bundle) => bundle.url);
+
+    const { aggregates } = d;
+
+    // Access parent through the getter
+    const page1Agg = aggregates['https://www.aem.live/page1'].toptime;
+    assert.ok(page1Agg.parent);
+    assert.equal(page1Agg.parent.count, 2); // Total of 2 bundles
+  });
+
+  it('should calculate percentiles correctly', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: Array.from({ length: 10 }, (_, i) => ({
+          id: `bundle-${i}`,
+          host: 'www.aem.live',
+          time: '2024-05-06T00:00:04.444Z',
+          timeSlot: '2024-05-06T00:00:00.000Z',
+          url: 'https://www.aem.live/page1',
+          userAgent: 'desktop:windows',
+          weight: 100,
+          events: [{ checkpoint: 'top', timeDelta: (i + 1) * 100 }], // 100, 200, 300, ..., 1000
+        })),
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addSeries('toptime', (bundle) => bundle.events.find((e) => e.checkpoint === 'top')?.timeDelta);
+
+    const { totals } = d;
+
+    // Test various percentiles
+    assert.equal(totals.toptime.percentile(0), 100); // 0th percentile (min)
+    assert.equal(totals.toptime.percentile(50), 600); // 50th percentile (median)
+    assert.equal(totals.toptime.percentile(90), 1000); // 90th percentile
+    assert.equal(totals.toptime.percentile(99), 1000); // 99th percentile
+  });
+
+  it('should calculate median correctly', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: Array.from({ length: 10 }, (_, i) => ({
+          id: `bundle-${i}`,
+          host: 'www.aem.live',
+          time: '2024-05-06T00:00:04.444Z',
+          timeSlot: '2024-05-06T00:00:00.000Z',
+          url: 'https://www.aem.live/page1',
+          userAgent: 'desktop:windows',
+          weight: 100,
+          events: [{ checkpoint: 'top', timeDelta: (i + 1) * 100 }], // 100, 200, 300, ..., 1000
+        })),
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addSeries('toptime', (bundle) => bundle.events.find((e) => e.checkpoint === 'top')?.timeDelta);
+
+    const { totals } = d;
+
+    // Median should equal the 50th percentile
+    assert.equal(totals.toptime.median, 600);
+    assert.equal(totals.toptime.median, totals.toptime.percentile(50));
+  });
+
+  it('should calculate variance and stddev correctly', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'bundle-1',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 10 }],
+          },
+          {
+            id: 'bundle-2',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 20 }],
+          },
+          {
+            id: 'bundle-3',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 30 }],
+          },
+          {
+            id: 'bundle-4',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 40 }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addSeries('toptime', (bundle) => bundle.events.find((e) => e.checkpoint === 'top')?.timeDelta);
+
+    const { totals } = d;
+
+    // Mean of [10, 20, 30, 40] = 25
+    assert.equal(totals.toptime.mean, 25);
+
+    // Variance = ((10-25)^2 + (20-25)^2 + (30-25)^2 + (40-25)^2) / 4
+    //          = (225 + 25 + 25 + 225) / 4
+    //          = 500 / 4 = 125
+    assert.equal(totals.toptime.variance, 125);
+
+    // Standard deviation = sqrt(125) ≈ 11.180339887498949
+    assert.equal(totals.toptime.stddev, Math.sqrt(125));
+  });
+
+  it('should handle empty values array for variance and stddev', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'bundle-1',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [], // No events, so no values will be collected
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    // Add a series that will return undefined (no values)
+    d.addSeries('toptime', (bundle) => bundle.events.find((e) => e.checkpoint === 'top')?.timeDelta);
+
+    const { totals } = d;
+
+    // Variance and stddev should be 0 for empty values array
+    assert.equal(totals.toptime.variance, 0);
+    assert.equal(totals.toptime.stddev, 0);
+  });
+
+  it('should calculate standard error (stderr) correctly', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'bundle-1',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 10 }],
+          },
+          {
+            id: 'bundle-2',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 20 }],
+          },
+          {
+            id: 'bundle-3',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 30 }],
+          },
+          {
+            id: 'bundle-4',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top', timeDelta: 40 }],
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addSeries('toptime', (bundle) => bundle.events.find((e) => e.checkpoint === 'top')?.timeDelta);
+
+    const { totals } = d;
+
+    // Standard error = stddev / sqrt(n)
+    // stddev = sqrt(125) ≈ 11.180339887498949
+    // n = 4
+    // stderr = 11.180339887498949 / sqrt(4) = 11.180339887498949 / 2 = 5.590169943749474
+    const expectedStderr = Math.sqrt(125) / Math.sqrt(4);
+    assert.equal(totals.toptime.stderr, expectedStderr);
+  });
+
+  it('should return 0 for stderr with empty values array', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'bundle-1',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [], // No events
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    d.addSeries('toptime', (bundle) => bundle.events.find((e) => e.checkpoint === 'top')?.timeDelta);
+
+    const { totals } = d;
+
+    // stderr should be 0 for empty values array
+    assert.equal(totals.toptime.stderr, 0);
+  });
+});
+
+describe('DataChunks.addHistogramFacet() edge cases', () => {
+  it('should handle bundles not found in base facet', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top' }],
+            cwvLCP: 100,
+          },
+          {
+            id: 'two',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page2',
+            userAgent: 'desktop:mac',
+            weight: 100,
+            events: [{ checkpoint: 'top' }],
+            // No cwvLCP property
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    // Add a facet that returns undefined for some bundles
+    d.addFacet('lcp', (bundle) => bundle.cwvLCP);
+
+    // Filter to exclude bundle without LCP
+    d.filter = { lcp: ['100'] };
+
+    // Now create histogram - bundle 'two' won't be in the filtered facet
+    d.addHistogramFacet('lcpHistogram', 'lcp', {
+      count: 3,
+      min: 0,
+      max: 1000,
+      steps: 'linear',
+    });
+
+    const { facets } = d;
+
+    // Should complete without error and create histogram
+    assert.ok(facets.lcpHistogram);
+    // Bundle 'two' will not have a histogram value because it wasn't in the base facet
+  });
+
+  it('should return empty array for bundles not in base facet bundleFacetMap', () => {
+    const testChunks = [
+      {
+        date: '2024-05-06',
+        rumBundles: [
+          {
+            id: 'one',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page1',
+            userAgent: 'desktop:windows',
+            weight: 100,
+            events: [{ checkpoint: 'top' }],
+            cwvLCP: 100,
+          },
+          {
+            id: 'two',
+            host: 'www.aem.live',
+            time: '2024-05-06T00:00:04.444Z',
+            timeSlot: '2024-05-06T00:00:00.000Z',
+            url: 'https://www.aem.live/page2',
+            userAgent: 'desktop:mac',
+            weight: 100,
+            events: [{ checkpoint: 'top' }],
+            // No cwvLCP - this bundle won't be in the base facet
+          },
+        ],
+      },
+    ];
+
+    const d = new DataChunks();
+    d.load(testChunks);
+
+    // Add base facet with LCP that only includes bundles with cwvLCP defined
+    d.addFacet('lcp', (bundle) => bundle.cwvLCP);
+
+    // Create histogram - this creates the bundleFacetMap with only bundle 'one'
+    d.addHistogramFacet('lcpHistogram', 'lcp', {
+      count: 3,
+      min: 0,
+      max: 1000,
+      steps: 'linear',
+    });
+
+    // Access the histogram facet which will call the facet function
+    // on all bundles, including 'two' which is NOT in the bundleFacetMap
+    const { facets } = d;
+
+    // Check that we got facets - bundle 'two' should return empty array
+    assert.ok(facets.lcpHistogram);
+    assert.ok(facets.lcpHistogram.length > 0);
+    
+    // The histogram should only have values from bundle 'one'
+    const histogramFacet = facets.lcpHistogram[0];
+    assert.ok(histogramFacet);
+  });
+});
