@@ -35,6 +35,15 @@ describe('facets:userAgent', () => {
     assert.equal(d.facets.userAgent.length, 11);
     // most common user agent is desktop
     assert.equal(d.facets.userAgent[0].value, 'desktop');
+
+    // estimators API returns Chao1 for a facet/series pair
+    const estUA = d.estimators('userAgent', 'pageViews').chao1;
+    assert.ok(typeof estUA.sObs === 'number');
+    assert.ok(Array.isArray(estUA.ci));
+
+    // positiveOnly=false path executes
+    const estUAAll = d.estimators('userAgent', 'pageViews', { positiveOnly: false }).chao1;
+    assert.ok(estUAAll.sHat >= estUAAll.sObs);
   });
 });
 
@@ -111,6 +120,19 @@ describe('facets:plainURL', () => {
     assert.equal(d.facets.plainURL.length, 92);
 
     assert.equal(d.facets.plainURL[0].value, 'https://www.aem.live/home');
+
+    // chao1 estimates for plainURL facet
+    const estURL = d.estimators('plainURL', 'pageViews').chao1;
+    assert.ok(estURL.sHat >= estURL.sObs);
+  });
+
+  it('estimators:errors', () => {
+    const d = new DataChunks();
+    d.load(testChunks);
+    d.addSeries('pageViews', pageViews);
+    d.addFacet('plainURL', facets.plainURL);
+    assert.throws(() => d.estimators('nope', 'pageViews'));
+    assert.throws(() => d.estimators('plainURL', 'nope'));
   });
 });
 
