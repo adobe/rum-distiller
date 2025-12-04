@@ -1,3 +1,10 @@
+# [1.21.0](https://github.com/adobe/rum-distiller/compare/v1.20.8...v1.21.0) (2025-12-04)
+
+
+### Features
+
+* add median, stddev, stderr ([e49aa2a](https://github.com/adobe/rum-distiller/commit/e49aa2a242e51e2c848468fe67ce190a117cef60))
+
 ## [1.20.8](https://github.com/adobe/rum-distiller/compare/v1.20.7...v1.20.8) (2025-10-17)
 
 
