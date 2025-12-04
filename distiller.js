@@ -16,6 +16,7 @@
  * filtering, aggregating, and summarizing the data.
  */
 import { urlProducer } from './utils.js';
+import { chao1CI } from './src/estimators/chao1.js';
 
 // Static lookup tables for filter combiners and negators
 // Hoisted to module level to avoid recreating on every bundle filter iteration
@@ -1101,7 +1102,7 @@ export class DataChunks {
         );
 
         // eslint-disable-next-line no-param-reassign
-        accOuter[facetName] = Object.entries(groupedByFacetIn)
+        const facetArray = Object.entries(groupedByFacetIn)
           .reduce((accInner, [facetValue, bundles]) => {
             accInner.push(bundles
               .reduce(f, new Facet(this, facetValue, facetName)));
@@ -1109,8 +1110,36 @@ export class DataChunks {
           }, [])
           // sort the entries by weight, descending (once after reduce completes)
           .sort((left, right) => right.weight - left.weight);
+
+        accOuter[facetName] = facetArray;
         return accOuter;
       }, {});
     return this.facetsIn;
+  }
+
+  /**
+   * Estimators computed over facet value observation counts (bundle counts).
+   * Usage: `dc.estimators.plainURL.chao1`.
+   * @returns {Object<string, { chao1: object }>} map-like object exposing a `chao1` estimate per facet name
+   */
+  get estimators() {
+    const parent = this;
+    const container = {};
+    const facetNames = Object.keys(parent.facets);
+    facetNames.forEach((facetName) => {
+      Object.defineProperty(container, facetName, {
+        enumerable: true,
+        configurable: true,
+        get() {
+          const facetArray = parent.facets[facetName] || [];
+          const perValueSamples = facetArray
+            .map((facet) => facet.entries.length)
+            .filter((n) => n > 0);
+          const est = chao1CI(perValueSamples);
+          return { chao1: est };
+        },
+      });
+    });
+    return container;
   }
 }
