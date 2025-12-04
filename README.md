@@ -17,6 +17,10 @@ When sampling hides low‑traffic pages, you can estimate the total number of UR
 
 See algorithm details in [src/estimators/README.md](src/estimators/README.md).
 
+References
+- Chao, A. (1984). Nonparametric estimation of the number of classes in a population. Scandinavian Journal of Statistics, 11, 265–270. https://doi.org/10.2307/4615964
+- Chao, A. (1987). Estimating the population size for capture–recapture data with unequal catchability. Biometrics, 43(4), 783–791. https://doi.org/10.2307/2531532
+
 ## Concepts
 
 

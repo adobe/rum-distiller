@@ -55,3 +55,7 @@ Notes
 - The estimator is most informative when many low‑frequency URLs exist (large `f1` relative to `f2`).
 - Results are conditional on the time window and any filters applied before computing the facet.
 - For a full posterior or a CDF, prefer bootstrap; this module intentionally returns a point estimate and a 95% CI.
+
+References
+- Chao, A. (1984). Nonparametric estimation of the number of classes in a population. Scandinavian Journal of Statistics, 11, 265–270. https://doi.org/10.2307/4615964
+- Chao, A. (1987). Estimating the population size for capture–recapture data with unequal catchability. Biometrics, 43(4), 783–791. https://doi.org/10.2307/2531532
