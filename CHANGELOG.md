@@ -1,3 +1,10 @@
+## [1.22.1](https://github.com/adobe/rum-distiller/compare/v1.22.0...v1.22.1) (2025-12-10)
+
+
+### Performance Improvements
+
+* **facets:** make addClusterFacet O(1) per-bundle by precomputing bundle->facet map; use Set for cluster membership and dedupe output. Add trace analyzer + microbench. Add unit test for dedupe. ([b89d373](https://github.com/adobe/rum-distiller/commit/b89d3738378b353e7dcbf1f957e727ca1fc7c556))
+
 # [1.22.0](https://github.com/adobe/rum-distiller/compare/v1.21.0...v1.22.0) (2025-12-10)
 
 
