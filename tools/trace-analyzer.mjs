@@ -32,7 +32,7 @@ function analyzeTrace(trace) {
   const events = trace.traceEvents || [];
   for (const ev of events) {
     if (ev.cat !== 'disabled-by-default-v8.cpu_profiler' || ev.name !== 'ProfileChunk') continue;
-    const { cpuProfile, timeDeltas } = ev.args.data || {};
+    const { cpuProfile, timeDeltas } = ev.args?.data || {};
     if (!cpuProfile || !cpuProfile.nodes || !Array.isArray(timeDeltas)) continue;
     const nodesById = new Map(cpuProfile.nodes.map((n) => [n.id, n]));
     const samples = cpuProfile.samples || [];
