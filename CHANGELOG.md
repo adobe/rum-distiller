@@ -1,3 +1,15 @@
+# [1.22.0](https://github.com/adobe/rum-distiller/compare/v1.21.0...v1.22.0) (2025-12-10)
+
+
+### Bug Fixes
+
+* **estimators:** expose dc.estimators.<facet>.chao1 using raw bundle counts; remove series arg ([6c50b7f](https://github.com/adobe/rum-distiller/commit/6c50b7f933a06e472ebd0c7b0d1b3bd4cc558cb4))
+
+
+### Features
+
+* **estimators:** add Chao1 richness estimator + 95% CI and DataChunks.estimators API; docs and links ([92cfd0a](https://github.com/adobe/rum-distiller/commit/92cfd0a45b5c68710d2daf9e8bdc4903c80d6334))
+
 # [1.21.0](https://github.com/adobe/rum-distiller/compare/v1.20.8...v1.21.0) (2025-12-04)
 
 
