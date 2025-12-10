@@ -42,7 +42,7 @@ function analyzeTrace(trace) {
       const node = nodesById.get(samples[i]);
       if (!node || !node.callFrame) continue;
       const { url = '(inline)', functionName = '(anonymous)' } = node.callFrame;
-      const key = `${url}#${functionName || '(anonymous)'}`;
+      const key = `${url}#${functionName}`;
       const prev = urlTotals.get(key) || { time: 0, samples: 0 };
       prev.time += deltas[i] || 0; // microseconds
       prev.samples += 1;
