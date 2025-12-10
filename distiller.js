@@ -491,6 +491,17 @@ export class DataChunks {
   }, facetCombiner = 'some', negativeCombiner = undefined) {
     const facetValues = this.facets[baseFacet];
 
+    // Build an O(1) lookup map from bundle.id -> [facetValue(s)]
+    // This avoids repeatedly scanning all facetValues and their entries for each bundle
+    const bundleFacetMap = facetValues.reduce((map, facet) => {
+      for (let i = 0; i < facet.entries.length; i += 1) {
+        const b = facet.entries[i];
+        const list = map[b.id] || (map[b.id] = []); // eslint-disable-line no-param-reassign
+        list.push(facet.value);
+      }
+      return map;
+    }, /** @type {Record<string,string[]>} */ ({}));
+
     const createClusterMap = () => {
       const clusterMap = facetValues.reduce((map, facet) => {
         const clusters = producer(facet.value);
@@ -519,11 +530,32 @@ export class DataChunks {
       .sort((a, b) => b[1] - a[1])
       .slice(0, clustercount)
       .map(([cluster]) => cluster);
+    const sortedClustersSet = new Set(sortedClusters);
 
     this.addFacet(facetName, (bundle) => {
-      const facetMatch = facetValues.find((f) => f.entries.some((e) => e.id === bundle.id));
-      const clusters = (facetMatch && producer(facetMatch.value)) || [];
-      return [facetMatch.value, ...clusters.filter((cluster) => sortedClusters.includes(cluster))];
+      const values = bundleFacetMap[bundle.id];
+      if (!values || values.length === 0) return [];
+      // Usually there will be a single base value. Support multiples defensively.
+      // Produce clusters for each base value and keep only the popular ones.
+      const out = [];
+      for (let i = 0; i < values.length; i += 1) {
+        const base = values[i];
+        out.push(base);
+        const clusters = producer(base);
+        for (let j = 0; j < clusters.length; j += 1) {
+          const c = clusters[j];
+          if (sortedClustersSet.has(c)) out.push(c);
+        }
+      }
+      // De-duplicate while preserving order in small arrays
+      if (out.length <= 1) return out;
+      const seen = new Set();
+      const dedup = [];
+      for (let i = 0; i < out.length; i += 1) {
+        const v = out[i];
+        if (!seen.has(v)) { seen.add(v); dedup.push(v); }
+      }
+      return dedup;
     }, facetCombiner, negativeCombiner);
   }
 
