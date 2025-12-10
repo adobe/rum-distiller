@@ -163,6 +163,8 @@ class Aggregate {
     this.weight = 0;
     this.values = [];
     this.parentProvider = parentProvider;
+    // lazily sorted cache flag for percentile/median
+    this._sorted = false;
   }
 
   get parent() {
@@ -215,9 +217,13 @@ class Aggregate {
   }
 
   percentile(p) {
-    const sorted = this.values.sort((left, right) => left - right);
-    const index = Math.floor((p / 100) * sorted.length);
-    return sorted[index];
+    if (!this._sorted) {
+      // Sort once in place; all other metrics are order‑insensitive
+      this.values.sort((left, right) => left - right);
+      this._sorted = true;
+    }
+    const index = Math.floor((p / 100) * this.values.length);
+    return this.values[index];
   }
 }
 
