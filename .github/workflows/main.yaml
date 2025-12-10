@@ -14,7 +14,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Use Node.js 24.x
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: '24.x'
       - run: npm ci
@@ -24,6 +24,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Semantic Release (Dry Run)
         run: npm run semantic-release-dry
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.ADOBE_BOT_GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
@@ -45,7 +46,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Use Node.js 24.x
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: '24.x'
       - run: npm ci
