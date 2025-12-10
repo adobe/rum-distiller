@@ -218,7 +218,7 @@ class Aggregate {
 
   percentile(p) {
     if (!this._sorted) {
-      // Sort once in place; all other metrics are order‑insensitive
+      // Sort once in place; all other metrics are order-insensitive
       this.values.sort((left, right) => left - right);
       this._sorted = true;
     }
