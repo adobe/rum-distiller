@@ -12,3 +12,4 @@ admin-idp-p*.*
 lcov.info
 junit.xml
 .vscode
+data/
