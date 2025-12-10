@@ -42,6 +42,10 @@ describe('DataChunks.addClusterFacet (dedupe + order)', () => {
     // Should contain base path and popular clusters exactly once (order not enforced here)
     assert.ok(arr.includes('/foo'));
     assert.ok(arr.includes('https://example.com/foo/bar'));
+    // Order: base value appears before derived cluster values
+    const baseIdx = arr.indexOf('https://example.com/foo/bar');
+    const clusterIdx = arr.indexOf('/foo');
+    assert.ok(baseIdx !== -1 && clusterIdx !== -1 && baseIdx < clusterIdx);
     // No duplicate '/foo'
     assert.equal(arr.filter((v) => v === '/foo').length, 1);
   });
