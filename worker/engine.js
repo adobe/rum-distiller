@@ -23,7 +23,11 @@ import { P2Multi } from '../src/quantiles/p2.js';
 import { SpaceSaving } from '../src/topk/space_saving.js';
 
 /** Tolerance for floating-point comparison when checking threshold === 1 */
-const PHASE_EPSILON = 1e-9;
+export const PHASE_EPSILON = 1e-9;
+/** Default number of membership bins used by streaming runs */
+export const DEFAULT_BINS = 1024;
+/** Default interval for auto-advancing streaming phase (ms) */
+export const AUTO_ADVANCE_INTERVAL_MS = 140;
 
 export function keyForBundle(bundle) {
   const id = bundle.id ?? '';
@@ -199,7 +203,7 @@ export async function computePhaseEngine(
       .sort((a, b) => b.weight - a.weight)
       .slice(0, k);
     if (threshold < 1 - PHASE_EPSILON) {
-      const d = threshold || 1e-9;
+      const d = threshold || PHASE_EPSILON;
       for (let i = 0; i < top.length; i += 1) {
         const o = top[i];
         top[i] = { value: o.value, count: (o.count ?? 0) / d, weight: (o.weight ?? 0) / d };
