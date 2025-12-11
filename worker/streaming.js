@@ -184,6 +184,27 @@ export class StreamingRun {
   }
 
   snapshot() {
+    /**
+     * Snapshot shape returned by streaming runs.
+     * - totals reflect scaled estimates when phase/coverage < 1.
+     * - sampleTotals are raw counts from the observed sample and
+     *   are present only when scaling is applied.
+     * - estimates mirror totals but make the scaling explicit for
+     *   convenience (sum/count/mean based on current completeness).
+     * @typedef {Object} Snapshot
+     * @property {number} phase
+     * @property {{ bundlesIncluded: number }} counts
+     * @property {Record<string, {count:number, sum:number, min:number,
+     *   max:number, mean:number}>} totals
+     * @property {Record<string, Record<string, number>>} approxQuantiles
+     * @property {Record<string, Array<{ value:any, count:number,
+     *   weight:number, estWeight?:number, estCount?:number }>>} facets
+     * @property {{ received:number, expected:number, coverage:number }} ingestion
+     * @property {Record<string, { sum:number, count:number, mean:number }>} [estimates]
+     * @property {Record<string, {count:number, sum:number, min:number,
+     *   max:number, mean:number}>} [sampleTotals]
+     * @property {Record<string, Record<string, number>>} [exactQuantiles]
+     */
     const totals = {};
     const approxQuantiles = {};
     (this.cfg.series || []).forEach((name) => {
