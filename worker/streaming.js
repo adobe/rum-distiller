@@ -20,7 +20,14 @@
 import { DataChunks } from '../distiller.js';
 import * as seriesMod from '../series.js';
 import { facets as builtInFacets } from '../facets.js';
-import { membership, exactQuantilesFromValues, keyForBundle } from './engine.js';
+import {
+  membership,
+  exactQuantilesFromValues,
+  keyForBundle,
+  PHASE_EPSILON,
+  DEFAULT_BINS,
+  AUTO_ADVANCE_INTERVAL_MS,
+} from './engine.js';
 import { P2Multi } from '../src/quantiles/p2.js';
 
 export class StreamingRun {
@@ -41,8 +48,11 @@ export class StreamingRun {
     this.processed = 0; // number of bundles seen up to current phase
 
     // Membership bins for queued items (> current phase)
-    this.BINS = 1024;
+    this.BINS = Number(config?.bins) || DEFAULT_BINS;
     this.bins = Array.from({ length: this.BINS }, () => []);
+
+    // Reusable DataChunks instance for filtering deltas
+    this.dc = new DataChunks();
 
     // Series aggregators
     this.seriesAgg = {};
@@ -77,8 +87,8 @@ export class StreamingRun {
       return;
     }
 
-    // Use a temporary DataChunks to filter just this delta
-    const dc = new DataChunks();
+    // Use a reusable DataChunks to filter just this delta
+    const { dc } = this;
     dc.load(chunks);
     const facetNames = Array.from(
       new Set([...(this.cfg.facets || []), ...Object.keys(this.filter || {})]),
@@ -204,8 +214,8 @@ export class StreamingRun {
         ? (this.cfg.topK[fname] || this.cfg.defaultTopK || 50)
         : (this.cfg.topK || this.cfg.defaultTopK || 50);
       const out = arr.slice(0, k).map((e) => ({ ...e }));
-      const f = Math.max(1e-9, (this.phase || 0) * this.coverage() || 0);
-      if (this.phase < 1 - 1e-9 || this.coverage() < 1 - 1e-9) {
+      const f = Math.max(PHASE_EPSILON, (this.phase || 0) * this.coverage() || 0);
+      if (this.phase < 1 - PHASE_EPSILON || this.coverage() < 1 - PHASE_EPSILON) {
         // avoid param-reassign by creating new objects with scaled fields
         for (let i = 0; i < out.length; i += 1) {
           const o = out[i];
@@ -232,7 +242,7 @@ export class StreamingRun {
     const denom = Math.max(0, Math.min(1, this.phase)) * Math.max(0, Math.min(1, cov));
 
     // When incomplete (phase < 1 or coverage < 1), expose scaled totals as estimates
-    if (denom > 0 && (this.phase < 1 - 1e-9 || cov < 1 - 1e-9)) {
+    if (denom > 0 && (this.phase < 1 - PHASE_EPSILON || cov < 1 - PHASE_EPSILON)) {
       snap.sampleTotals = snap.totals;
       const scaled = {};
       (this.cfg.series || []).forEach((name) => {
@@ -246,7 +256,7 @@ export class StreamingRun {
       const estimates = {};
       (this.cfg.series || []).forEach((name) => {
         const t = base[name] || {};
-        const d = denom || 1e-9;
+        const d = denom || PHASE_EPSILON;
         estimates[name] = {
           sum: (t.sum ?? 0) / d,
           count: (t.count ?? 0) / d,
@@ -257,7 +267,7 @@ export class StreamingRun {
       snap.estimates = estimates;
     }
     // Only compute exact quantiles when BOTH phase and coverage are complete
-    if (Math.abs(this.phase - 1) < 1e-9 && Math.abs(cov - 1) < 1e-9) {
+    if (Math.abs(this.phase - 1) < PHASE_EPSILON && Math.abs(cov - 1) < PHASE_EPSILON) {
       const exact = {};
       (this.cfg.series || []).forEach((name) => {
         exact[name] = exactQuantilesFromValues(
@@ -416,6 +426,8 @@ export function createStreamingDataChunks(workerInput) {
     defaultTopK: 50,
     topK: {},
     filter: {},
+    autoAdvanceIntervalMs: AUTO_ADVANCE_INTERVAL_MS,
+    maxSlices: Infinity,
   };
   const moduleFacets = [];
   const moduleSeries = [];
@@ -426,6 +438,10 @@ export function createStreamingDataChunks(workerInput) {
   let ticker = null;
   let lastSnap = null;
   const loadedSlices = [];
+  let errorHandler = null;
+  // Restart coordination
+  let restarting = false;
+  let restartSeq = 0;
 
   function computeProgress(snap) {
     const phase = snap?.phase || 0;
@@ -479,7 +495,7 @@ export function createStreamingDataChunks(workerInput) {
       let target = 0;
       if (cov < 1) {
         target = Math.min(nextT, desired);
-      } else if (current + 1e-9 < nextT) {
+      } else if (current + PHASE_EPSILON < nextT) {
         target = nextT;
       } else {
         target = Math.min(1, desired);
@@ -495,17 +511,17 @@ export function createStreamingDataChunks(workerInput) {
           if (snapHandler) {
             const enriched = enrich(p);
             snapHandler(enriched);
-            if (enriched.progress >= 1 - 1e-9 && doneHandler) {
+            if (enriched.progress >= 1 - PHASE_EPSILON && doneHandler) {
               doneHandler(enriched);
             }
           }
         } catch (_) { /* ignore */ }
       }
-      if (cov >= 1 && (lastSnap?.phase || 0) >= 1 - 1e-9) {
+      if (cov >= 1 && (lastSnap?.phase || 0) >= 1 - PHASE_EPSILON) {
         clearInterval(ticker);
         ticker = null;
       }
-    }, 140);
+    }, Number(cfg.autoAdvanceIntervalMs) || AUTO_ADVANCE_INTERVAL_MS);
   }
 
   const api = {
@@ -566,6 +582,10 @@ export function createStreamingDataChunks(workerInput) {
       cfg.quantiles = ps.length ? ps : cfg.quantiles;
       return this;
     },
+    set autoAdvanceIntervalMs(v) {
+      cfg.autoAdvanceIntervalMs = Number(v) || AUTO_ADVANCE_INTERVAL_MS;
+    },
+    get autoAdvanceIntervalMs() { return cfg.autoAdvanceIntervalMs; },
     set defaultTopK(v) {
       cfg.defaultTopK = Number(v) || 50;
     },
@@ -573,6 +593,8 @@ export function createStreamingDataChunks(workerInput) {
       return cfg.defaultTopK;
     },
     topK: cfg.topK,
+    set maxSlices(v) { cfg.maxSlices = Number.isFinite(v) ? Number(v) : Infinity; },
+    get maxSlices() { return cfg.maxSlices; },
     set expectChunks(v) {
       expectChunks = Math.max(0, Number(v) || 0);
     },
@@ -587,6 +609,10 @@ export function createStreamingDataChunks(workerInput) {
       doneHandler = fn;
       return this;
     },
+    onError(fn) {
+      errorHandler = fn;
+      return this;
+    },
     setFilter(filterSpec) {
       cfg.filter = filterSpec || {};
       return this;
@@ -594,7 +620,8 @@ export function createStreamingDataChunks(workerInput) {
     set filter(filterSpec) {
       cfg.filter = filterSpec || {};
       // Fire-and-forget to keep setter synchronous
-      this.restartWithCurrentFilter()?.catch?.(() => {});
+      const r = this.restartWithCurrentFilter();
+      r?.catch?.((e) => errorHandler?.(e));
     },
     get filter() { return cfg.filter; },
     get progress() { return computeProgress(lastSnap); },
@@ -604,13 +631,21 @@ export function createStreamingDataChunks(workerInput) {
       if (hasData) {
         const arr = Array.isArray(chunks) ? chunks : [chunks];
         loadedSlices.push(...arr);
+        // Enforce optional maxSlices to bound memory growth
+        if (
+          Number.isFinite(cfg.maxSlices)
+          && cfg.maxSlices >= 0
+          && loadedSlices.length > cfg.maxSlices
+        ) {
+          loadedSlices.splice(0, loadedSlices.length - cfg.maxSlices);
+        }
         const add = session.streamAdd({ reqId, chunks: arr, requestsDelta: 1 });
         const snap = await add.promise;
         lastSnap = snap;
         if (snapHandler) {
           const enriched = enrich(snap);
           snapHandler(enriched);
-          if (enriched.progress >= 1 - 1e-9 && doneHandler) {
+          if (enriched.progress >= 1 - PHASE_EPSILON && doneHandler) {
             doneHandler(enriched);
           }
         }
@@ -621,13 +656,19 @@ export function createStreamingDataChunks(workerInput) {
       if (snapHandler) {
         const enriched = enrich(fin);
         snapHandler(enriched);
-        if (enriched.progress >= 1 - 1e-9 && doneHandler) {
+        if (enriched.progress >= 1 - PHASE_EPSILON && doneHandler) {
           doneHandler(enriched);
         }
       }
       return fin;
     },
     async restartWithCurrentFilter() {
+      restartSeq += 1;
+      const mySeq = restartSeq;
+      if (restarting) {
+        // Mark previous restart as obsolete; it will observe seq change
+      }
+      restarting = true;
       if (ticker) {
         clearInterval(ticker);
         ticker = null;
@@ -641,19 +682,27 @@ export function createStreamingDataChunks(workerInput) {
       reqId = null;
       lastSnap = null;
       expectChunks = savedExpect;
-      await ensureInit();
-      for (let i = 0; i < loadedSlices.length; i += 1) {
-        const add = session.streamAdd({
-          reqId,
-          chunks: [loadedSlices[i]],
-          requestsDelta: 1,
-        });
-        // eslint-disable-next-line no-await-in-loop
-        const snap = await add.promise;
-        lastSnap = snap;
-        if (snapHandler) {
-          snapHandler(enrich(snap));
+      try {
+        await ensureInit();
+        for (let i = 0; i < loadedSlices.length; i += 1) {
+          if (mySeq !== restartSeq) return; // another restart superseded this one
+          const add = session.streamAdd({
+            reqId,
+            chunks: [loadedSlices[i]],
+            requestsDelta: 1,
+          });
+          // eslint-disable-next-line no-await-in-loop
+          const snap = await add.promise;
+          lastSnap = snap;
+          if (snapHandler) {
+            snapHandler(enrich(snap));
+          }
         }
+      } catch (e) {
+        errorHandler?.(e);
+        throw e;
+      } finally {
+        if (mySeq === restartSeq) restarting = false;
       }
     },
     async close() {
