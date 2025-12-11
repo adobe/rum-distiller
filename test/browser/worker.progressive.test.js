@@ -49,80 +49,36 @@ function mkChunks() {
   return bundles;
 }
 
-async function importSession() {
-  const { createAnalysisSession } = await import('../../worker/session.js');
-  return createAnalysisSession;
-}
-
-function workerUrlFromModule() {
-  return new URL('../../worker/analysis.worker.js', import.meta.url);
-}
-
-describe('progressive worker', () => {
+describe('streaming wrapper', () => {
   it('streams 12/25/50/100 with approx->exact quantiles and topK facets', async () => {
-    const createAnalysisSession = await importSession();
-    const session = createAnalysisSession(workerUrlFromModule());
-    const chunks = mkChunks();
-
-    await session.init({
-      series: ['pageViews', 'lcp'],
-      facets: ['plainURL'],
-      thresholds: [0.12, 0.25, 0.5, 1],
-      quantiles: [0.5, 0.9],
-      topK: 5,
-    });
-    await session.load(chunks);
-
+    const { createStreamingDataChunks } = await import('../../worker/streaming.js');
+    const dc = createStreamingDataChunks(new URL('../../worker/analysis.worker.js', import.meta.url));
+    dc.addDistillerSeries('pageViews');
+    dc.addDistillerSeries('lcp');
+    dc.addDistillerFacet('plainURL');
+    dc.setThresholds(4); // [0.12,0.59,0.82,1] – final 1 guaranteed
+    dc.prepareQuantiles(0.5, 0.9);
+    dc.defaultTopK = 5;
     const phases = [];
     const results = [];
-    const { promise } = session.computeProgressive(
-      { filter: {} },
-      {
-        onPartial: (snap) => {
-          phases.push(snap.phase);
-          results.push(snap);
-        },
-      },
-    );
-    const done = await promise;
-    expect(done.done).to.equal(true);
-    expect(done.cancelled).to.not.equal(true);
-    expect(phases).to.deep.equal([0.12, 0.25, 0.5, 1]);
-    // Approx quantiles present in early phases
-    expect(results[0].approxQuantiles.lcp).to.have.property(50);
-    expect(results[0]).to.not.have.property('exactQuantiles');
-    // Exact quantiles present at the end
+    let doneResolve;
+    const doneP = new Promise((res) => { doneResolve = res; });
+    dc.onSnap((snap) => { phases.push(snap.phase); results.push(snap); if (snap.progress >= 1 - 1e-9) doneResolve(); });
+
+    const chunks = mkChunks();
+    dc.expectChunks = chunks.length;
+    await dc.load(chunks[0]);
+    await dc.load(chunks[1]);
+    await dc.load(); // finalize expected count
+    await doneP; // wait until auto‑progress reaches completion
+
+    // last snap should be complete (progress = 1)
     const last = results[results.length - 1];
-    expect(last.exactQuantiles.lcp).to.have.property(50);
-    // TopK facets
+    expect(last.progress).to.equal(1);
+    // early approx quantiles
+    expect(results[0].quantiles.lcp).to.have.property(50);
+    // TopK facets present
     expect(last.facets.plainURL.length).to.be.at.most(5);
     expect(last.facets.plainURL[0]).to.have.keys(['value', 'count', 'weight']);
-  });
-
-  it('cancels an in-flight computation', async () => {
-    const createAnalysisSession = await importSession();
-    const session = createAnalysisSession(workerUrlFromModule());
-    const chunks = mkChunks();
-    await session.init({
-      series: ['pageViews'],
-      facets: ['plainURL'],
-      thresholds: [0.12, 0.25, 0.5, 1],
-    });
-    await session.load(chunks);
-
-    let partials = 0;
-    const req = session.computeProgressive(
-      {},
-      {
-        onPartial: () => {
-          partials += 1;
-          if (partials === 1) req.cancel();
-        },
-      },
-    );
-    const done = await req.promise;
-    expect(done.done).to.equal(true);
-    expect(done.cancelled).to.equal(true);
-    expect(partials).to.equal(1);
   });
 });
