@@ -115,8 +115,15 @@ ctx.onmessage = async (ev) => {
         const filterSpec = payload?.filter || {};
         const expected = Number(payload?.expectedRequests) || 1;
         const reqId = id; // tie lifecycle to this request id
-        const checkCancel = () => { if (cancelled.has(reqId)) throw new Error('cancelled'); };
-        const run = new StreamingRun(expected, config, filterSpec, { yieldEvery: 256, cancelCheck: checkCancel });
+        const checkCancel = () => {
+          if (cancelled.has(reqId)) throw new Error('cancelled');
+        };
+        const run = new StreamingRun(
+          expected,
+          config,
+          filterSpec,
+          { yieldEvery: 256, cancelCheck: checkCancel },
+        );
         streaming.set(reqId, run);
         respond(id, true, { ok: true });
         break;
@@ -124,18 +131,26 @@ ctx.onmessage = async (ev) => {
       case 'stream:add': {
         const reqId = payload?.reqId || id;
         const run = streaming.get(reqId);
-        if (!run) { respond(id, false, { error: 'no streaming run' }); break; }
+        if (!run) {
+          respond(id, false, { error: 'no streaming run' });
+          break;
+        }
         // Accept chunks and optional requestsDelta
         await run.ingest(payload?.chunks || [], Number(payload?.requestsDelta) || 0);
         // Optionally advance to a phase (defaults to current)
-        if (Number.isFinite(payload?.phase)) await run.advanceTo(Number(payload.phase));
+        if (Number.isFinite(payload?.phase)) {
+          await run.advanceTo(Number(payload.phase));
+        }
         respond(id, true, run.snapshot());
         break;
       }
       case 'stream:phase': {
         const reqId = payload?.reqId || id;
         const run = streaming.get(reqId);
-        if (!run) { respond(id, false, { error: 'no streaming run' }); break; }
+        if (!run) {
+          respond(id, false, { error: 'no streaming run' });
+          break;
+        }
         await run.advanceTo(Number(payload?.phase) || 0);
         respond(id, true, run.snapshot());
         break;
@@ -143,7 +158,10 @@ ctx.onmessage = async (ev) => {
       case 'stream:end': {
         const reqId = payload?.reqId || id;
         const run = streaming.get(reqId);
-        if (!run) { respond(id, false, { error: 'no streaming run' }); break; }
+        if (!run) {
+          respond(id, false, { error: 'no streaming run' });
+          break;
+        }
         streaming.delete(reqId);
         respond(id, true, { done: true });
         break;
@@ -151,7 +169,10 @@ ctx.onmessage = async (ev) => {
       case 'stream:finalize': {
         const reqId = payload?.reqId || id;
         const run = streaming.get(reqId);
-        if (!run) { respond(id, false, { error: 'no streaming run' }); break; }
+        if (!run) {
+          respond(id, false, { error: 'no streaming run' });
+          break;
+        }
         const snap = await run.finalize();
         respond(id, true, snap);
         break;
@@ -159,11 +180,17 @@ ctx.onmessage = async (ev) => {
       case 'facet:import': {
         const name = payload?.name;
         const url = payload?.url;
-        if (!name || !url) { respond(id, false, { error: 'name and url required' }); break; }
-        // eslint-disable-next-line import/no-dynamic-import
+        if (!name || !url) {
+          respond(id, false, { error: 'name and url required' });
+          break;
+        }
+        // eslint-disable-next-line no-restricted-syntax
         const mod = await import(url);
         const fn = mod?.[name];
-        if (typeof fn !== 'function') { respond(id, false, { error: `export ${name} is not a function` }); break; }
+        if (typeof fn !== 'function') {
+          respond(id, false, { error: `export ${name} is not a function` });
+          break;
+        }
         config.customFacets[name] = fn;
         respond(id, true, { ok: true });
         break;
@@ -171,11 +198,17 @@ ctx.onmessage = async (ev) => {
       case 'series:import': {
         const name = payload?.name;
         const url = payload?.url;
-        if (!name || !url) { respond(id, false, { error: 'name and url required' }); break; }
-        // eslint-disable-next-line import/no-dynamic-import
+        if (!name || !url) {
+          respond(id, false, { error: 'name and url required' });
+          break;
+        }
+        // eslint-disable-next-line no-restricted-syntax
         const mod = await import(url);
         const fn = mod?.[name];
-        if (typeof fn !== 'function') { respond(id, false, { error: `export ${name} is not a function` }); break; }
+        if (typeof fn !== 'function') {
+          respond(id, false, { error: `export ${name} is not a function` });
+          break;
+        }
         config.customSeries[name] = fn;
         respond(id, true, { ok: true });
         break;

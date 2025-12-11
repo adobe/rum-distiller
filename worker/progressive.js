@@ -155,13 +155,14 @@ export class ProgressiveRun {
       const k = (typeof this.cfg.topK === 'object' && this.cfg.topK)
         ? (this.cfg.topK[fname] || this.cfg.defaultTopK || 50)
         : (this.cfg.topK || this.cfg.defaultTopK || 50);
-      const out = arr.slice(0, k).map((e) => ({ ...e }));
+      let out = arr.slice(0, k).map((e) => ({ ...e }));
       if (phase < 1 - 1e-9) {
-        out.forEach((o) => {
-          const d = phase || 1e-9;
-          o.weight = (o.weight ?? 0) / d;
-          o.count = (o.count ?? 0) / d;
-        });
+        const d = phase || 1e-9;
+        out = out.map((o) => ({
+          value: o.value,
+          count: (o.count ?? 0) / d,
+          weight: (o.weight ?? 0) / d,
+        }));
       }
       facets[fname] = out;
     });
