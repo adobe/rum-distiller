@@ -16,11 +16,11 @@
 import { DataChunks } from '../distiller.js';
 import * as seriesMod from '../series.js';
 import { facets as builtInFacets } from '../facets.js';
-import { membership, exactQuantilesFromValues } from './engine.js';
+import { membership, exactQuantilesFromValues, PHASE_EPSILON } from './engine.js';
 import { P2Multi } from '../src/quantiles/p2.js';
 
 /** Tolerance for floating-point comparison when checking phase === 1 */
-const PHASE_EPSILON = 1e-9;
+// Re-exported from engine to avoid duplicate definitions
 
 export class ProgressiveRun {
   constructor(loadedChunks, config, filterSpec = {}, { yieldEvery = 0, cancelCheck } = {}) {
@@ -156,8 +156,8 @@ export class ProgressiveRun {
         ? (this.cfg.topK[fname] || this.cfg.defaultTopK || 50)
         : (this.cfg.topK || this.cfg.defaultTopK || 50);
       let out = arr.slice(0, k).map((e) => ({ ...e }));
-      if (phase < 1 - 1e-9) {
-        const d = phase || 1e-9;
+      if (phase < 1 - PHASE_EPSILON) {
+        const d = phase || PHASE_EPSILON;
         out = out.map((o) => ({
           value: o.value,
           count: (o.count ?? 0) / d,
