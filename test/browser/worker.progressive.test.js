@@ -62,8 +62,16 @@ describe('streaming wrapper', () => {
     const phases = [];
     const results = [];
     let doneResolve;
-    const doneP = new Promise((res) => { doneResolve = res; });
-    dc.onSnap((snap) => { phases.push(snap.phase); results.push(snap); if (snap.progress >= 1 - 1e-9) doneResolve(); });
+    const doneP = new Promise((res) => {
+      doneResolve = res;
+    });
+    dc.onSnap((snap) => {
+      phases.push(snap.phase);
+      results.push(snap);
+      if (snap.progress >= 1 - 1e-9) {
+        doneResolve();
+      }
+    });
 
     const chunks = mkChunks();
     dc.expectChunks = chunks.length;

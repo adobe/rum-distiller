@@ -199,11 +199,11 @@ export async function computePhaseEngine(
       .sort((a, b) => b.weight - a.weight)
       .slice(0, k);
     if (threshold < 1 - PHASE_EPSILON) {
-      top.forEach((o) => {
-        const d = threshold || 1e-9;
-        o.weight = (o.weight ?? 0) / d;
-        o.count = (o.count ?? 0) / d;
-      });
+      const d = threshold || 1e-9;
+      for (let i = 0; i < top.length; i += 1) {
+        const o = top[i];
+        top[i] = { value: o.value, count: (o.count ?? 0) / d, weight: (o.weight ?? 0) / d };
+      }
     }
     facets[name] = top;
   }
