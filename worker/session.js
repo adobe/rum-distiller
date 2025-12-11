@@ -34,11 +34,7 @@ export function createAnalysisSession(workerInput, options = {}) {
       id, ok, result, partial,
     } = ev.data || {};
     const entry = inflight.get(id);
-    if (!entry) {
-      // eslint-disable-next-line no-console
-      if (typeof console !== 'undefined' && console.warn) console.warn('[session] Unknown message id:', id);
-      return;
-    }
+    if (!entry) { return; }
     if (partial && entry.onPartial) entry.onPartial(result);
     if (!partial) {
       inflight.delete(id);
@@ -46,6 +42,10 @@ export function createAnalysisSession(workerInput, options = {}) {
       else entry.reject(result);
     }
   };
+
+  // Robust error propagation
+  w.onerror = (e) => { rejectAll(new Error(e?.message || 'Worker error')); };
+  w.onmessageerror = () => { rejectAll(new Error('Worker message error')); };
 
   function request(cmd, payload, { onPartial, signal, timeout, transfer } = {}) {
     seq += 1;
