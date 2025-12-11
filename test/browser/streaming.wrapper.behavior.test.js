@@ -1,6 +1,13 @@
 /*
  * Copyright 2025 Adobe. All rights reserved.
- * Licensed under the Apache License, Version 2.0.
+ * This file is licensed to you under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License. You may obtain a copy
+ * of the License at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under
+ * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+ * OF ANY KIND, either express or implied. See the License for the specific language
+ * governing permissions and limitations under the License.
  */
 /* global describe, it */
 
@@ -63,7 +70,11 @@ class FakeWorker {
           totals: {},
           approxQuantiles: {},
           facets: {},
-          ingestion: { received: this.received, expected: this.expected, coverage: Math.min(1, this.received / this.expected) },
+          ingestion: {
+            received: this.received,
+            expected: this.expected,
+            coverage: Math.min(1, this.received / this.expected),
+          },
         };
         this.respond(id, true, snap);
         break;
@@ -74,7 +85,11 @@ class FakeWorker {
           totals: {},
           approxQuantiles: {},
           facets: {},
-          ingestion: { received: this.received, expected: this.expected, coverage: Math.min(1, this.received / this.expected) },
+          ingestion: {
+            received: this.received,
+            expected: this.expected,
+            coverage: Math.min(1, this.received / this.expected),
+          },
         };
         this.respond(id, true, snap);
         break;
@@ -105,7 +120,7 @@ function mkChunk(n = 10, base = 0) {
     weight: 1,
     events: [
       { checkpoint: 'enter', source: 'https://example.com/ref' },
-      { checkpoint: 'cwv-lcp', value: 1000 + ((base + i) * 7) % 1200 },
+      { checkpoint: 'cwv-lcp', value: 1000 + (((base + i) * 7) % 1200) },
     ],
   }));
   return { date: '2025-01-01', rumBundles };
@@ -119,7 +134,9 @@ describe('streaming wrapper behavior (fake worker)', () => {
     dc.addDistillerSeries('pageViews');
     dc.expectChunks = 1;
     let error;
-    dc.onError((e) => { error = e; });
+    dc.onError((e) => {
+      error = e;
+    });
 
     // initial load/ensureInit succeeds
     await dc.load(mkChunk(5));
@@ -133,7 +150,7 @@ describe('streaming wrapper behavior (fake worker)', () => {
     const t0 = performance.now();
     // eslint-disable-next-line no-constant-condition
     while (error === undefined && performance.now() - t0 < 500) {
-      // eslint-disable-next-line no-await-in-loop
+      // eslint-disable-next-line no-await-in-loop, no-promise-executor-return
       await new Promise((r) => setTimeout(r, 5));
     }
     expect(error).to.not.equal(undefined);
@@ -162,7 +179,7 @@ describe('streaming wrapper behavior (fake worker)', () => {
     // eslint-disable-next-line no-constant-condition
     while (fw.adds.reduce((a, b) => a + b, 0) < 2) {
       if (performance.now() - start > 500) break;
-      // eslint-disable-next-line no-await-in-loop
+      // eslint-disable-next-line no-await-in-loop, no-promise-executor-return
       await new Promise((r) => setTimeout(r, 5));
     }
     expect(fw.adds.reduce((a, b) => a + b, 0)).to.equal(2, 'should replay exactly 2 slices');
