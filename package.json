@@ -2,17 +2,25 @@
   "name": "@adobe/rum-distiller",
   "version": "1.22.1",
   "scripts": {
-    "test": "node --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=lcov.info --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=junit.xml",
+    "test": "node --test test/**/*.js --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=lcov.info --test-reporter=spec --test-reporter=junit --test-reporter-destination=junit.xml",
     "test-ci": "npm run test",
     "lint": "eslint .",
     "bench": "node bench/cluster.bench.mjs",
+    "test:browser": "web-test-runner --config web-test-runner.config.mjs",
     "trace:analyze": "node tools/trace-analyzer.mjs",
     "docs": "npx jsdoc2md --files '*.js'  > API.md",
     "semantic-release": "semantic-release",
-    "semantic-release-dry": "semantic-release --dry-run --branches $CI_BRANCH"
+    "semantic-release-dry": "semantic-release --dry-run --branches $CI_BRANCH",
+    "demo": "npx serve -l 5169 --no-clipboard -o /test/browser/demo.html"
   },
   "type": "module",
   "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./worker": "./worker/analysis.worker.js",
+    "./worker/session": "./worker/session.js",
+    "./worker/streaming": "./worker/streaming.client.js"
+  },
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -26,7 +34,10 @@
     "@semantic-release/npm": "13.1.2",
     "eslint": "9.37.0",
     "jsdoc-to-markdown": "9.1.3",
-    "semantic-release": "25.0.2"
+    "semantic-release": "25.0.2",
+    "@web/test-runner": "0.16.0",
+    "@web/test-runner-puppeteer": "0.17.0",
+    "puppeteer": "23.6.0"
   },
   "lint-staged": {
     "*.js": "eslint",
