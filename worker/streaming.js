@@ -1,6 +1,9 @@
 /*
  * Streaming ingestion progressive analysis.
  * Accepts chunks incrementally and maintains streaming aggregates.
+ *
+ * This module also exposes a high‑level browser wrapper
+ * `createStreamingDataChunks(workerUrl)` that talks to the worker.
  */
 import { DataChunks } from '../distiller.js';
 import * as seriesMod from '../series.js';
@@ -207,4 +210,156 @@ export class StreamingRun {
     }
     return snap;
   }
+}
+
+// ---------------------------------------------
+// Browser wrapper: createStreamingDataChunks()
+// ---------------------------------------------
+
+/**
+ * Create a DataChunks-like streaming client that talks to the analysis worker.
+ * @param {URL|string|any} workerInput URL to analysis.worker.js (module worker). If omitted, resolves relative to this module.
+ */
+export function createStreamingDataChunks(workerInput) {
+  // Minimal session client (inlined; replaced previous worker/session.js)
+  function createSession(wi) {
+    const workerUrl = wi || new URL('./analysis.worker.js', import.meta.url);
+    const w = (typeof workerUrl === 'object' && workerUrl && typeof workerUrl.postMessage === 'function')
+      ? workerUrl
+      : new Worker(workerUrl, { type: 'module', name: 'rum-distiller-analysis' });
+    let seq = 0;
+    const inflight = new Map();
+    const rejectAll = (err) => { const arr = Array.from(inflight.values()); inflight.clear(); arr.forEach((e) => e.reject?.(err)); };
+    w.onmessage = (ev) => {
+      const { id, ok, result, partial } = ev.data || {};
+      const entry = inflight.get(id);
+      if (!entry) return;
+      if (partial && entry.onPartial) entry.onPartial(result);
+      if (!partial) { inflight.delete(id); if (ok) entry.resolve(result); else entry.reject(result); }
+    };
+    w.onerror = (e) => { rejectAll(new Error(e?.message || 'Worker error')); };
+    w.onmessageerror = () => { rejectAll(new Error('Worker message error')); };
+    function request(cmd, payload, { onPartial, signal, timeout, transfer } = {}) {
+      seq += 1; const id = seq; let to = null; let onAbort = null;
+      const promise = new Promise((resolve, reject) => {
+        inflight.set(id, { resolve, reject, onPartial });
+        if (timeout && Number.isFinite(timeout) && timeout > 0) {
+          to = setTimeout(() => {
+            inflight.delete(id);
+            reject(Object.assign(new Error('Operation timed out'), { name: 'TimeoutError' }));
+            try { w.postMessage({ id: ++seq, cmd: 'cancel', payload: { targetId: id } }); } catch (_) { /* ignore */ }
+          }, timeout);
+        }
+        if (signal) {
+          if (signal.aborted) {
+            inflight.delete(id);
+            reject(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }));
+            return;
+          }
+          onAbort = () => {
+            inflight.delete(id);
+            reject(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }));
+            try { w.postMessage({ id: ++seq, cmd: 'cancel', payload: { targetId: id } }); } catch (_) { /* ignore */ }
+          };
+          signal.addEventListener('abort', onAbort, { once: true });
+        }
+      });
+      try {
+        if (transfer && Array.isArray(transfer) && transfer.length) w.postMessage({ id, cmd, payload }, transfer);
+        else w.postMessage({ id, cmd, payload });
+      } catch (e) {
+        inflight.delete(id); if (signal && onAbort) signal.removeEventListener('abort', onAbort); if (to) clearTimeout(to); throw e;
+      }
+      const cancel = () => {
+        if (signal && onAbort) signal.removeEventListener('abort', onAbort); if (to) clearTimeout(to);
+        seq += 1; w.postMessage({ id: seq, cmd: 'cancel', payload: { targetId: id } });
+      };
+      promise.finally(() => { if (signal && onAbort) signal.removeEventListener('abort', onAbort); if (to) clearTimeout(to); });
+      return { id, promise, cancel };
+    }
+    return {
+      init: (opts) => request('init', opts).promise,
+      streamInit: (opts) => request('stream:init', opts),
+      streamAdd: (opts, handlers = {}) => request('stream:add', opts, handlers),
+      streamPhase: (opts) => request('stream:phase', opts),
+      streamEnd: (opts) => request('stream:end', opts),
+      streamFinalize: (opts) => request('stream:finalize', opts),
+      registerFacetModule: ({ name, url }) => request('facet:import', { name, url }).promise,
+      registerSeriesModule: ({ name, url }) => request('series:import', { name, url }).promise,
+      terminate: () => { try { w.terminate(); } finally { rejectAll(new Error('Worker terminated')); } },
+    };
+  }
+
+  const session = createSession(workerInput);
+  const cfg = { series: [], facets: [], thresholds: [0.12, 0.25, 0.5, 1], quantiles: [0.5, 0.9, 0.99], defaultTopK: 50, topK: {}, filter: {} };
+  const moduleFacets = []; const moduleSeries = [];
+  let expectChunks = 0; let snapHandler = null; let doneHandler = null; let reqId = null; let ticker = null; let lastSnap = null; const loadedSlices = [];
+
+  async function ensureInit() {
+    if (reqId != null) return;
+    for (let i = 0; i < moduleFacets.length; i += 1) { const { name, url } = moduleFacets[i]; await session.registerFacetModule({ name, url }); }
+    for (let i = 0; i < moduleSeries.length; i += 1) { const { name, url } = moduleSeries[i]; await session.registerSeriesModule({ name, url }); }
+    await session.init({ series: cfg.series, facets: cfg.facets, thresholds: cfg.thresholds, quantiles: cfg.quantiles, topK: cfg.topK, defaultTopK: cfg.defaultTopK });
+    const init = session.streamInit({ expectedRequests: expectChunks > 0 ? expectChunks : 1, filter: cfg.filter || {} });
+    await init.promise; reqId = init.id;
+    const th = cfg.thresholds;
+    ticker = setInterval(async () => {
+      const cov = lastSnap?.ingestion?.coverage || 0; const current = lastSnap?.phase || 0; const minDesired = 0.5 * cov;
+      const nextT = th.find((t) => t > current) ?? 1; const nudgeStep = 0.02;
+      const desired = Math.max(current + nudgeStep, minDesired);
+      const target = (cov < 1) ? Math.min(nextT, desired) : ((current + 1e-9 < nextT) ? nextT : Math.min(1, desired));
+      if (target > current + 1e-6) {
+        try {
+          const p = await session.streamPhase({ reqId, phase: Number(target.toFixed(6)) }).promise;
+          lastSnap = p;
+          if (snapHandler) {
+            const enriched = { ...p, progress: api.progress, quantiles: p.exactQuantiles || p.approxQuantiles };
+            snapHandler(enriched); if (enriched.progress >= 1 - 1e-9 && doneHandler) doneHandler(enriched);
+          }
+        } catch (_) { /* ignore */ }
+      }
+      if (cov >= 1 && (lastSnap?.phase || 0) >= 1 - 1e-9) { clearInterval(ticker); ticker = null; }
+    }, 140);
+  }
+
+  const api = {
+    addSeries() { throw new Error('addSeries is not supported in StreamingDataChunks. Use addDistillerSeries(name) or addModuleSeries(name, url).'); },
+    addDistillerSeries(name) { if (Array.isArray(name)) throw new Error('addDistillerSeries expects a string. Call it multiple times for multiple series.'); cfg.series.push(name); return this; },
+    addModuleSeries(name, url) { moduleSeries.push({ name, url: String(url) }); cfg.series.push(name); return this; },
+    addFacet() { throw new Error('addFacet is not supported in StreamingDataChunks. Use addDistillerFacet(name) or addModuleFacet(name, url).'); },
+    addDistillerFacet(name) { cfg.facets.push(name); return this; },
+    addModuleFacet(name, url) { moduleFacets.push({ name, url: String(url) }); cfg.facets.push(name); return this; },
+    setThresholds(...args) { if (args.length === 1 && Number.isFinite(args[0])) { const n = Math.max(1, Number(args[0])); const start = 0.12; const arr = []; for (let i = 1; i <= n; i += 1) { const t = start + (1 - start) * (i / n); arr.push(Number(Math.min(1, t).toFixed(6))); } arr[arr.length - 1] = 1; cfg.thresholds = arr; return this; } const arr = args.map(Number).filter((x) => Number.isFinite(x) && x > 0 && x <= 1); if (arr[arr.length - 1] !== 1) arr.push(1); cfg.thresholds = arr; return this; },
+    prepareQuantiles(...ps) { cfg.quantiles = ps.length ? ps : cfg.quantiles; return this; },
+    set defaultTopK(v) { cfg.defaultTopK = Number(v) || 50; }, get defaultTopK() { return cfg.defaultTopK; },
+    topK: cfg.topK,
+    set expectChunks(v) { expectChunks = Math.max(0, Number(v) || 0); }, get expectChunks() { return expectChunks; },
+    onSnap(fn) { snapHandler = fn; return this; }, onDone(fn) { doneHandler = fn; return this; },
+    setFilter(filterSpec) { cfg.filter = filterSpec || {}; return this; },
+    set filter(filterSpec) { cfg.filter = filterSpec || {}; this.restartWithCurrentFilter()?.catch?.(() => {}); }, get filter() { return cfg.filter; },
+    get progress() { const f = (lastSnap?.phase || 0) * (lastSnap?.ingestion?.coverage || 0); return Number(f.toFixed(6)); },
+    async load(chunks) {
+      await ensureInit();
+      if (chunks && (Array.isArray(chunks) ? chunks.length : true)) {
+        const arr = Array.isArray(chunks) ? chunks : [chunks]; loadedSlices.push(...arr);
+        const add = session.streamAdd({ reqId, chunks: arr, requestsDelta: 1 });
+        const snap = await add.promise; lastSnap = snap; if (snapHandler) { const enriched = { ...snap, progress: api.progress, quantiles: snap.exactQuantiles || snap.approxQuantiles }; snapHandler(enriched); if (enriched.progress >= 1 - 1e-9 && doneHandler) doneHandler(enriched); }
+        return snap;
+      }
+      const fin = await session.streamFinalize({ reqId }).promise; lastSnap = fin; if (snapHandler) { const enriched = { ...fin, progress: api.progress, quantiles: fin.exactQuantiles || fin.approxQuantiles }; snapHandler(enriched); if (enriched.progress >= 1 - 1e-9 && doneHandler) doneHandler(enriched); }
+      return fin;
+    },
+    async restartWithCurrentFilter() {
+      if (ticker) { clearInterval(ticker); ticker = null; }
+      if (reqId != null) { try { await session.streamEnd({ reqId }).promise; } catch (_) { /* ignore */ } }
+      const savedExpect = expectChunks || loadedSlices.length; reqId = null; lastSnap = null; expectChunks = savedExpect; await ensureInit();
+      for (let i = 0; i < loadedSlices.length; i += 1) {
+        const add = session.streamAdd({ reqId, chunks: [loadedSlices[i]], requestsDelta: 1 });
+        const snap = await add.promise; lastSnap = snap; if (snapHandler) { const enriched = { ...snap, progress: api.progress, quantiles: snap.exactQuantiles || snap.approxQuantiles }; snapHandler(enriched); }
+      }
+    },
+    async close() { if (ticker) { clearInterval(ticker); ticker = null; } if (reqId != null) { try { await session.streamEnd({ reqId }).promise; } catch (_) { /* ignore */ } } reqId = null; },
+  };
+
+  return api;
 }

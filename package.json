@@ -2,7 +2,7 @@
   "name": "@adobe/rum-distiller",
   "version": "1.22.1",
   "scripts": {
-    "test": "node --test test/**/*.js --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=lcov.info --test-reporter=spec --test-reporter=junit --test-reporter-destination=junit.xml",
+    "test": "node --test test/*.js --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=lcov.info --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=junit.xml",
     "test-ci": "npm run test",
     "lint": "eslint .",
     "bench": "node bench/cluster.bench.mjs",
@@ -18,8 +18,7 @@
   "exports": {
     ".": "./index.js",
     "./worker": "./worker/analysis.worker.js",
-    "./worker/session": "./worker/session.js",
-    "./worker/streaming": "./worker/streaming.client.js"
+    "./worker/streaming": "./worker/streaming.js"
   },
   "license": "Apache-2.0",
   "repository": {
