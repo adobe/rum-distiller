@@ -14,10 +14,20 @@
  * Thin browser-side client for analysis.worker.js
  */
 
-export function createAnalysisSession(workerUrl) {
-  const w = new Worker(workerUrl, { type: 'module' });
+export function createAnalysisSession(workerInput, options = {}) {
+  // Allow passing an existing Worker instance or a URL
+  const w = (typeof workerInput === 'object' && workerInput && typeof workerInput.postMessage === 'function')
+    ? workerInput
+    // eslint-disable-next-line no-new
+    : new Worker(workerInput, { type: 'module', name: options.name || 'rum-distiller-analysis' });
   let seq = 0;
   const inflight = new Map();
+
+  function rejectAll(err) {
+    const es = Array.from(inflight.values());
+    inflight.clear();
+    es.forEach((e) => e.reject?.(err));
+  }
 
   w.onmessage = (ev) => {
     const {
@@ -37,35 +47,73 @@ export function createAnalysisSession(workerUrl) {
     }
   };
 
-  function request(cmd, payload, { onPartial } = {}) {
+  function request(cmd, payload, { onPartial, signal, timeout, transfer } = {}) {
     seq += 1;
     const id = seq;
+    let to = null;
+    let onAbort = null;
     const promise = new Promise((resolve, reject) => {
       inflight.set(id, { resolve, reject, onPartial });
+      if (timeout && Number.isFinite(timeout) && timeout > 0) {
+        to = setTimeout(() => {
+          inflight.delete(id);
+          reject(Object.assign(new Error('Operation timed out'), { name: 'TimeoutError' }));
+          // try to cancel on the worker side too
+          try { w.postMessage({ id: ++seq, cmd: 'cancel', payload: { targetId: id } }); } catch (_) { /* ignore */ }
+        }, timeout);
+      }
+      if (signal) {
+        if (signal.aborted) {
+          inflight.delete(id);
+          reject(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }));
+          return;
+        }
+        onAbort = () => {
+          inflight.delete(id);
+          reject(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }));
+          try { w.postMessage({ id: ++seq, cmd: 'cancel', payload: { targetId: id } }); } catch (_) { /* ignore */ }
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
     });
-    w.postMessage({ id, cmd, payload });
+    try {
+      if (transfer && Array.isArray(transfer) && transfer.length) w.postMessage({ id, cmd, payload }, transfer);
+      else w.postMessage({ id, cmd, payload });
+    } catch (e) {
+      // Ensure we reject synchronously if postMessage fails (structured clone)
+      inflight.delete(id);
+      if (signal && onAbort) signal.removeEventListener('abort', onAbort);
+      if (to) clearTimeout(to);
+      throw e;
+    }
     const cancel = () => {
+      if (signal && onAbort) signal.removeEventListener('abort', onAbort);
+      if (to) clearTimeout(to);
       seq += 1;
       w.postMessage({ id: seq, cmd: 'cancel', payload: { targetId: id } });
     };
+    // Ensure timers/listeners are cleared when the promise settles
+    promise.finally(() => { if (signal && onAbort) signal.removeEventListener('abort', onAbort); if (to) clearTimeout(to); });
     return { id, promise, cancel };
   }
 
   return {
-    init: (options) => request('init', options).promise,
+    init: (opts) => request('init', opts).promise,
     load: (chunks) => request('load', { chunks }).promise,
     addData: (chunks) => request('addData', { chunks }).promise,
-    computeProgressive: (options, handlers = {}) => request('computeProgressive', options, handlers),
+    computeProgressive: (opts, handlers = {}) => request('computeProgressive', opts, handlers),
     // Streaming API
-    streamInit: (options) => request('stream:init', options),
-    streamAdd: (options, handlers = {}) => request('stream:add', options, handlers),
-    streamPhase: (options) => request('stream:phase', options),
-    streamEnd: (options) => request('stream:end', options),
-    streamFinalize: (options) => request('stream:finalize', options),
+    streamInit: (opts) => request('stream:init', opts),
+    streamAdd: (opts, handlers = {}) => request('stream:add', opts, handlers),
+    streamPhase: (opts) => request('stream:phase', opts),
+    streamEnd: (opts) => request('stream:end', opts),
+    streamFinalize: (opts) => request('stream:finalize', opts),
     // Module registration API (for custom facets/series in the worker)
     registerFacetModule: ({ name, url }) => request('facet:import', { name, url }).promise,
     registerSeriesModule: ({ name, url }) => request('series:import', { name, url }).promise,
-    terminate: () => w.terminate(),
+    terminate: () => { try { w.terminate(); } finally { rejectAll(new Error('Worker terminated')); } },
+    // Expose underlying worker for advanced scenarios (e.g., external lifecycle)
+    worker: w,
   };
 }
 
