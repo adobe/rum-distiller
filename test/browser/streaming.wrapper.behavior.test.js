@@ -129,7 +129,13 @@ describe('streaming wrapper behavior (fake worker)', () => {
     dc.filter = { plainURL: ['/x'] };
 
     // wait a bit for restart to run and fail
-    await new Promise((r) => setTimeout(r, 10));
+    // wait for onError to be called
+    const t0 = performance.now();
+    // eslint-disable-next-line no-constant-condition
+    while (error === undefined && performance.now() - t0 < 500) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, 5));
+    }
     expect(error).to.not.equal(undefined);
     // request() rejects with the raw result object when ok=false
     expect(error).to.have.property('error', 'boom');
