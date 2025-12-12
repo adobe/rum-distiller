@@ -487,8 +487,11 @@ export function createStreamingDataChunks(workerInput) {
     };
   }
 
+  let initPromise = null;
+
   async function ensureInit() {
     if (reqId != null) return;
+    if (initPromise) { await initPromise; return; }
     if (!session) {
       let target = workerInput;
       const isObj = target && typeof target === 'object' && typeof target.postMessage === 'function';
@@ -498,32 +501,35 @@ export function createStreamingDataChunks(workerInput) {
       }
       session = createSession(target);
     }
-    for (let i = 0; i < moduleFacets.length; i += 1) {
-      const { name, url } = moduleFacets[i];
-      // eslint-disable-next-line no-await-in-loop
-      await session.registerFacetModule({ name, url });
-    }
-    for (let i = 0; i < moduleSeries.length; i += 1) {
-      const { name, url } = moduleSeries[i];
-      // eslint-disable-next-line no-await-in-loop
-      await session.registerSeriesModule({ name, url });
-    }
-    await session.init({
-      series: cfg.series,
-      facets: cfg.facets,
-      thresholds: cfg.thresholds,
-      quantiles: cfg.quantiles,
-      topK: cfg.topK,
-      defaultTopK: cfg.defaultTopK,
-    });
-    const expected = expectChunks > 0 ? expectChunks : 1;
-    const init = session.streamInit({
-      expectedRequests: expected,
-      filter: cfg.filter || {},
-      shards: cfg.shards || 1,
-    });
-    await init.promise;
-    reqId = init.id;
+    initPromise = (async () => {
+      for (let i = 0; i < moduleFacets.length; i += 1) {
+        const { name, url } = moduleFacets[i];
+        // eslint-disable-next-line no-await-in-loop
+        await session.registerFacetModule({ name, url });
+      }
+      for (let i = 0; i < moduleSeries.length; i += 1) {
+        const { name, url } = moduleSeries[i];
+        // eslint-disable-next-line no-await-in-loop
+        await session.registerSeriesModule({ name, url });
+      }
+      await session.init({
+        series: cfg.series,
+        facets: cfg.facets,
+        thresholds: cfg.thresholds,
+        quantiles: cfg.quantiles,
+        topK: cfg.topK,
+        defaultTopK: cfg.defaultTopK,
+      });
+      const expected = expectChunks > 0 ? expectChunks : 1;
+      const init = session.streamInit({
+        expectedRequests: expected,
+        filter: cfg.filter || {},
+        shards: cfg.shards || 1,
+      });
+      await init.promise;
+      reqId = init.id;
+    })();
+    try { await initPromise; } finally { initPromise = null; }
     const th = cfg.thresholds;
     ticker = setInterval(async () => {
       const cov = lastSnap?.ingestion?.coverage || 0;
