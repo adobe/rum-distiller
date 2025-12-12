@@ -671,8 +671,12 @@ export function createStreamingDataChunks(workerInput) {
     get filter() { return cfg.filter; },
     get progress() { return computeProgress(lastSnap); },
     async load(chunks) {
-      await ensureInit();
       const hasData = chunks && (Array.isArray(chunks) ? chunks.length : true);
+      // If this is a finalize call (no chunks) and no run is active, do nothing
+      if (!hasData && reqId == null) {
+        return lastSnap || { phase: 0, totals: {}, facets: {}, approxQuantiles: {}, ingestion: { received: 0, expected: 0, coverage: 0 } };
+      }
+      await ensureInit();
       if (hasData) {
         const arr = Array.isArray(chunks) ? chunks : [chunks];
         loadedSlices.push(...arr);
