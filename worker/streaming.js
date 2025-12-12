@@ -443,7 +443,7 @@ export function createStreamingDataChunks(workerInput) {
     };
   }
 
-  const session = createSession(workerInput);
+  let session = null;
   const cfg = {
     series: [],
     facets: [],
@@ -469,7 +469,6 @@ export function createStreamingDataChunks(workerInput) {
   // Restart coordination
   let restarting = false;
   let restartSeq = 0;
-  let rrShard = 0;
 
   function computeProgress(snap) {
     const phase = snap?.phase || 0;
@@ -490,6 +489,15 @@ export function createStreamingDataChunks(workerInput) {
 
   async function ensureInit() {
     if (reqId != null) return;
+    if (!session) {
+      let target = workerInput;
+      const isObj = target && typeof target === 'object' && typeof target.postMessage === 'function';
+      if (!isObj) {
+        if (cfg.shards && cfg.shards > 1) target = new URL('./orchestrator.worker.js', import.meta.url);
+        else target = target || new URL('./analysis.worker.js', import.meta.url);
+      }
+      session = createSession(target);
+    }
     for (let i = 0; i < moduleFacets.length; i += 1) {
       const { name, url } = moduleFacets[i];
       // eslint-disable-next-line no-await-in-loop
@@ -509,9 +517,11 @@ export function createStreamingDataChunks(workerInput) {
       defaultTopK: cfg.defaultTopK,
     });
     const expected = expectChunks > 0 ? expectChunks : 1;
-    const init = (cfg.shards && cfg.shards > 1)
-      ? session.request('stream:group:init', { shards: cfg.shards, expectedRequests: expected, filter: cfg.filter || {} })
-      : session.streamInit({ expectedRequests: expected, filter: cfg.filter || {} });
+    const init = session.streamInit({
+      expectedRequests: expected,
+      filter: cfg.filter || {},
+      shards: cfg.shards || 1,
+    });
     await init.promise;
     reqId = init.id;
     const th = cfg.thresholds;
@@ -532,9 +542,7 @@ export function createStreamingDataChunks(workerInput) {
       }
       if (target > current + 1e-6) {
         try {
-          const req = (cfg.shards && cfg.shards > 1)
-            ? session.request('stream:group:phase', { reqId, phase: Number(target.toFixed(6)) })
-            : session.streamPhase({ reqId, phase: Number(target.toFixed(6)) });
+          const req = session.streamPhase({ reqId, phase: Number(target.toFixed(6)) });
           const p = await req.promise;
           lastSnap = p;
           if (snapHandler) {
@@ -670,14 +678,7 @@ export function createStreamingDataChunks(workerInput) {
         ) {
           loadedSlices.splice(0, loadedSlices.length - cfg.maxSlices);
         }
-        const add = (cfg.shards && cfg.shards > 1)
-          ? session.request('stream:group:add', {
-            reqId,
-            shard: (rrShard += 1) % (cfg.shards || 1),
-            chunks: arr,
-            requestsDelta: 1,
-          })
-          : session.streamAdd({ reqId, chunks: arr, requestsDelta: 1 });
+        const add = session.streamAdd({ reqId, chunks: arr, requestsDelta: 1 });
         const snap = await add.promise;
         lastSnap = snap;
         if (snapHandler) {
@@ -689,9 +690,7 @@ export function createStreamingDataChunks(workerInput) {
         }
         return snap;
       }
-      const fin = (cfg.shards && cfg.shards > 1)
-        ? await session.request('stream:group:finalize', { reqId }).promise
-        : await session.streamFinalize({ reqId }).promise;
+      const fin = await session.streamFinalize({ reqId }).promise;
       lastSnap = fin;
       if (snapHandler) {
         const enriched = enrich(fin);
@@ -715,10 +714,7 @@ export function createStreamingDataChunks(workerInput) {
       }
       if (reqId != null) {
         try {
-          const endReq = (cfg.shards && cfg.shards > 1)
-            ? session.request('stream:group:end', { reqId })
-            : session.streamEnd({ reqId });
-          await endReq.promise;
+          await session.streamEnd({ reqId }).promise;
         } catch (_) { /* ignore */ }
       }
       const savedExpect = expectChunks || loadedSlices.length;
@@ -729,14 +725,11 @@ export function createStreamingDataChunks(workerInput) {
         await ensureInit();
         for (let i = 0; i < loadedSlices.length; i += 1) {
           if (mySeq !== restartSeq) return; // another restart superseded this one
-          const add = (cfg.shards && cfg.shards > 1)
-            ? session.request('stream:group:add', {
-              reqId,
-              shard: i % (cfg.shards || 1),
-              chunks: [loadedSlices[i]],
-              requestsDelta: 1,
-            })
-            : session.streamAdd({ reqId, chunks: [loadedSlices[i]], requestsDelta: 1 });
+          const add = session.streamAdd({
+            reqId,
+            chunks: [loadedSlices[i]],
+            requestsDelta: 1,
+          });
           // eslint-disable-next-line no-await-in-loop
           const snap = await add.promise;
           lastSnap = snap;
@@ -762,6 +755,9 @@ export function createStreamingDataChunks(workerInput) {
         } catch (_) { /* ignore */ }
       }
       reqId = null;
+      // Proactively terminate the worker to free threads/processes
+      try { session?.terminate?.(); } catch (_) { /* ignore */ }
+      session = null;
     },
   };
 
