@@ -29,6 +29,7 @@ import {
   AUTO_ADVANCE_INTERVAL_MS,
 } from './engine.js';
 import { P2Multi } from '../src/quantiles/p2.js';
+import { MergeableHistMulti } from '../src/quantiles/mergeable_hist.js';
 
 export class StreamingRun {
   constructor(expectedRequests, config, filterSpec = {}, { yieldEvery = 0, cancelCheck } = {}) {
@@ -56,6 +57,7 @@ export class StreamingRun {
 
     // Series aggregators
     this.seriesAgg = {};
+    this.mergeable = new MergeableHistMulti(this.cfg.quantiles || [0.5, 0.9, 0.99], 256);
     (this.cfg.series || []).forEach((name) => {
       this.seriesAgg[name] = {
         sum: 0,
@@ -162,6 +164,7 @@ export class StreamingRun {
       if (v > s.max) s.max = v;
       s.p2.push(v);
       s.values.push(v);
+      this.mergeable.push(name, v, b.weight || 1);
     }
     // Facets
     for (let f = 0; f < (this.cfg.facets || []).length; f += 1) {
@@ -255,6 +258,7 @@ export class StreamingRun {
       counts: { bundlesIncluded: this.processed },
       totals,
       approxQuantiles,
+      mergeableQuantiles: this.mergeable.values(),
       facets,
       ingestion: { received: this.received, expected: this.expected, coverage: this.coverage() },
     };
@@ -415,6 +419,7 @@ export function createStreamingDataChunks(workerInput) {
     }
     return {
       init: (opts) => request('init', opts).promise,
+      request: (cmd, payload, handlers = {}) => request(cmd, payload, handlers),
       streamInit: (opts) => request('stream:init', opts),
       streamAdd: (opts, handlers = {}) => request('stream:add', opts, handlers),
       streamPhase: (opts) => request('stream:phase', opts),
@@ -449,6 +454,7 @@ export function createStreamingDataChunks(workerInput) {
     filter: {},
     autoAdvanceIntervalMs: AUTO_ADVANCE_INTERVAL_MS,
     maxSlices: Infinity,
+    shards: 1,
   };
   const moduleFacets = [];
   const moduleSeries = [];
@@ -463,6 +469,7 @@ export function createStreamingDataChunks(workerInput) {
   // Restart coordination
   let restarting = false;
   let restartSeq = 0;
+  let rrShard = 0;
 
   function computeProgress(snap) {
     const phase = snap?.phase || 0;
@@ -472,10 +479,12 @@ export function createStreamingDataChunks(workerInput) {
   }
 
   function enrich(snap) {
+    const mq = snap?.mergeableQuantiles;
+    const hasMq = mq && typeof mq === 'object' && Object.keys(mq).length > 0;
     return {
       ...snap,
       progress: computeProgress(snap),
-      quantiles: snap.exactQuantiles || snap.approxQuantiles,
+      quantiles: hasMq ? mq : (snap.exactQuantiles || snap.approxQuantiles),
     };
   }
 
@@ -499,10 +508,10 @@ export function createStreamingDataChunks(workerInput) {
       topK: cfg.topK,
       defaultTopK: cfg.defaultTopK,
     });
-    const init = session.streamInit({
-      expectedRequests: expectChunks > 0 ? expectChunks : 1,
-      filter: cfg.filter || {},
-    });
+    const expected = expectChunks > 0 ? expectChunks : 1;
+    const init = (cfg.shards && cfg.shards > 1)
+      ? session.request('stream:group:init', { shards: cfg.shards, expectedRequests: expected, filter: cfg.filter || {} })
+      : session.streamInit({ expectedRequests: expected, filter: cfg.filter || {} });
     await init.promise;
     reqId = init.id;
     const th = cfg.thresholds;
@@ -523,10 +532,9 @@ export function createStreamingDataChunks(workerInput) {
       }
       if (target > current + 1e-6) {
         try {
-          const req = session.streamPhase({
-            reqId,
-            phase: Number(target.toFixed(6)),
-          });
+          const req = (cfg.shards && cfg.shards > 1)
+            ? session.request('stream:group:phase', { reqId, phase: Number(target.toFixed(6)) })
+            : session.streamPhase({ reqId, phase: Number(target.toFixed(6)) });
           const p = await req.promise;
           lastSnap = p;
           if (snapHandler) {
@@ -614,6 +622,8 @@ export function createStreamingDataChunks(workerInput) {
       return cfg.defaultTopK;
     },
     topK: cfg.topK,
+    set shards(v) { cfg.shards = Math.max(1, Number(v) || 1); },
+    get shards() { return cfg.shards || 1; },
     set maxSlices(v) { cfg.maxSlices = Number.isFinite(v) ? Number(v) : Infinity; },
     get maxSlices() { return cfg.maxSlices; },
     set expectChunks(v) {
@@ -660,7 +670,14 @@ export function createStreamingDataChunks(workerInput) {
         ) {
           loadedSlices.splice(0, loadedSlices.length - cfg.maxSlices);
         }
-        const add = session.streamAdd({ reqId, chunks: arr, requestsDelta: 1 });
+        const add = (cfg.shards && cfg.shards > 1)
+          ? session.request('stream:group:add', {
+            reqId,
+            shard: (rrShard += 1) % (cfg.shards || 1),
+            chunks: arr,
+            requestsDelta: 1,
+          })
+          : session.streamAdd({ reqId, chunks: arr, requestsDelta: 1 });
         const snap = await add.promise;
         lastSnap = snap;
         if (snapHandler) {
@@ -672,7 +689,9 @@ export function createStreamingDataChunks(workerInput) {
         }
         return snap;
       }
-      const fin = await session.streamFinalize({ reqId }).promise;
+      const fin = (cfg.shards && cfg.shards > 1)
+        ? await session.request('stream:group:finalize', { reqId }).promise
+        : await session.streamFinalize({ reqId }).promise;
       lastSnap = fin;
       if (snapHandler) {
         const enriched = enrich(fin);
@@ -696,7 +715,10 @@ export function createStreamingDataChunks(workerInput) {
       }
       if (reqId != null) {
         try {
-          await session.streamEnd({ reqId }).promise;
+          const endReq = (cfg.shards && cfg.shards > 1)
+            ? session.request('stream:group:end', { reqId })
+            : session.streamEnd({ reqId });
+          await endReq.promise;
         } catch (_) { /* ignore */ }
       }
       const savedExpect = expectChunks || loadedSlices.length;
@@ -707,11 +729,14 @@ export function createStreamingDataChunks(workerInput) {
         await ensureInit();
         for (let i = 0; i < loadedSlices.length; i += 1) {
           if (mySeq !== restartSeq) return; // another restart superseded this one
-          const add = session.streamAdd({
-            reqId,
-            chunks: [loadedSlices[i]],
-            requestsDelta: 1,
-          });
+          const add = (cfg.shards && cfg.shards > 1)
+            ? session.request('stream:group:add', {
+              reqId,
+              shard: i % (cfg.shards || 1),
+              chunks: [loadedSlices[i]],
+              requestsDelta: 1,
+            })
+            : session.streamAdd({ reqId, chunks: [loadedSlices[i]], requestsDelta: 1 });
           // eslint-disable-next-line no-await-in-loop
           const snap = await add.promise;
           lastSnap = snap;
