@@ -129,6 +129,10 @@
       function buildStreaming() {
         const workerUrl = new URL('../../worker/analysis.worker.js', import.meta.url);
         const dc = createStreamingDataChunks(workerUrl);
+        // Enable parallelism by default (wrapper selects orchestrator worker when shards > 1)
+        const hc = (typeof navigator !== 'undefined' && navigator && navigator.hardwareConcurrency) ? navigator.hardwareConcurrency : 4;
+        const shards = Math.max(2, Math.min(4, hc));
+        dc.shards = shards;
         // Configure series/facets
         dc.addDistillerSeries('pageViews'); dc.addDistillerSeries('lcp'); dc.addDistillerFacet('plainURL');
         // Custom facet/series from ESM module
@@ -137,13 +141,15 @@
         const n = Number($("phases").value); dc.setThresholds(n); dc.prepareQuantiles(0.5, 0.9, 0.99); dc.defaultTopK = Number($("topk").value);
         // Snapshots
         dc.onSnap((snap) => { updateCoverage(snap); updatePhaseBar(snap.phase, n); renderTotals(snap); renderTopK(snap); renderCustom(snap); });
+        // Show mode hint
+        $('mode').textContent = `(parallel: ${shards} shards)`;
         dc.onDone(() => { setStatus('Done'); });
         return dc;
       }
       function currentFilterSpec() { const v = $('filter')?.value || 'all'; if (v === 'desktop') return { userAgent: ['desktop:macos'] }; if (v === 'mobile') return { userAgent: ['mobile:ios'] }; return {}; }
 
       async function startDemo() {
-        clearOutputs(); $('mode').textContent = '(worker wrapper)'; $('cancel').disabled = false;
+        clearOutputs(); $('mode').textContent = '(starting…)'; $('cancel').disabled = false;
         const slices = mkSlices(Math.floor(30 + Math.random() * 70));
         const dc = buildStreaming(); dcRef = dc; dc.expectChunks = slices.length; dc.filter = currentFilterSpec();
         const baseStep = 200; const jitter = 150; const timeouts = []; const shuffled = [...slices].sort(() => Math.random() - 0.5);
