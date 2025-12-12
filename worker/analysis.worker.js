@@ -19,10 +19,12 @@
 
 import { ProgressiveRun } from './progressive.js';
 import { StreamingRun } from './streaming.js';
+import { MergeableHistMulti } from '../src/quantiles/mergeable_hist.js';
 
 const ctx = /** @type {WorkerGlobalScope} */ (self);
 const cancelled = new Set(); // ids cancelled from the client
 const streaming = new Map(); // requestId -> StreamingRun
+const groups = new Map(); // groupId -> { runs: StreamingRun[], mergeable: MergeableHistMulti }
 
 // Internal state
 let config = {
@@ -126,6 +128,147 @@ ctx.onmessage = async (ev) => {
         );
         streaming.set(reqId, run);
         respond(id, true, { ok: true });
+        break;
+      }
+      case 'stream:group:init': {
+        const filterSpec = payload?.filter || {};
+        const expected = Number(payload?.expectedRequests) || 1;
+        const shards = Math.max(1, Number(payload?.shards) || 1);
+        const reqId = id;
+        const checkCancel = () => {
+          if (cancelled.has(reqId)) throw new Error('cancelled');
+        };
+        const runs = [];
+        for (let s = 0; s < shards; s += 1) {
+          runs.push(new StreamingRun(expected, config, filterSpec, {
+            yieldEvery: 256,
+            cancelCheck: checkCancel,
+          }));
+        }
+        groups.set(reqId, {
+          runs,
+          mergeable: new MergeableHistMulti(
+            config.quantiles || [0.5, 0.9, 0.99],
+            256,
+          ),
+        });
+        respond(id, true, { ok: true });
+        break;
+      }
+      case 'stream:group:add': {
+        const reqId = payload?.reqId || id;
+        const g = groups.get(reqId);
+        if (!g) {
+          respond(id, false, { error: 'no group' });
+          break;
+        }
+        const idx = Math.max(0, Math.min(g.runs.length - 1, Number(payload?.shard) || 0));
+        const run = g.runs[idx];
+        await run.ingest(payload?.chunks || [], Number(payload?.requestsDelta) || 0);
+        if (Number.isFinite(payload?.phase)) await run.advanceTo(Number(payload.phase));
+        respond(id, true, run.snapshot());
+        break;
+      }
+      case 'stream:group:phase': {
+        const reqId = payload?.reqId || id;
+        const g = groups.get(reqId);
+        if (!g) {
+          respond(id, false, { error: 'no group' });
+          break;
+        }
+        const phase = Number(payload?.phase) || 0;
+        let minPhase = 1;
+        let received = 0;
+        let expected = 0;
+        let bundlesIncluded = 0;
+        const totals = {};
+        const facets = {};
+        const mergeable = new MergeableHistMulti(config.quantiles || [0.5, 0.9, 0.99], 256);
+        for (let i = 0; i < g.runs.length; i += 1) {
+          const r = g.runs[i];
+          // eslint-disable-next-line no-await-in-loop
+          await r.advanceTo(phase);
+          const snap = r.snapshot();
+          minPhase = Math.min(minPhase, snap.phase || 0);
+          received += snap?.ingestion?.received || 0;
+          expected += snap?.ingestion?.expected || 0;
+          bundlesIncluded += snap?.counts?.bundlesIncluded || 0;
+          // merge totals
+          Object.entries(snap.totals || {}).forEach(([name, t]) => {
+            const cur = totals[name] || {
+              count: 0, sum: 0, min: Infinity, max: -Infinity,
+            };
+            cur.count += t.count || 0;
+            cur.sum += t.sum || 0;
+            cur.min = Math.min(cur.min, Number.isFinite(t.min) ? t.min : Infinity);
+            cur.max = Math.max(cur.max, Number.isFinite(t.max) ? t.max : -Infinity);
+            totals[name] = cur;
+          });
+          // merge facets
+          Object.entries(snap.facets || {}).forEach(([fname, list]) => {
+            const m = facets[fname] || new Map();
+            for (let j = 0; j < list.length; j += 1) {
+              const e = list[j];
+              const cur = m.get(e.value) || { count: 0, weight: 0 };
+              cur.count += e.count || 0;
+              cur.weight += e.weight || 0;
+              m.set(e.value, cur);
+            }
+            facets[fname] = m;
+          });
+          // merge mergeable quantiles
+          // Pull the internal histogram from the run
+          if (r.mergeable) mergeable.mergeFrom(r.mergeable);
+        }
+        // finalize totals.mean
+        Object.entries(totals).forEach(([name, t]) => {
+          // eslint-disable-next-line no-param-reassign
+          totals[name] = { ...t, mean: t.count ? t.sum / t.count : 0 };
+        });
+        // finalize facets order + topK
+        const outFacets = {};
+        const names = config.facets || [];
+        for (let f = 0; f < names.length; f += 1) {
+          const fname = names[f];
+          const m = facets[fname] || new Map();
+          const k = (typeof config.topK === 'object' && config.topK)
+            ? (config.topK[fname] || config.defaultTopK || 50)
+            : (config.topK || config.defaultTopK || 50);
+          outFacets[fname] = Array.from(m.entries())
+            .map(([value, data]) => ({ value, count: data.count, weight: data.weight }))
+            .sort((a, b) => b.weight - a.weight)
+            .slice(0, k);
+        }
+        const coverage = expected ? Math.min(1, received / expected) : 0;
+        const snap = {
+          phase: minPhase,
+          counts: { bundlesIncluded },
+          totals,
+          approxQuantiles: {},
+          mergeableQuantiles: mergeable.values(),
+          facets: outFacets,
+          ingestion: { received, expected, coverage },
+        };
+        respond(id, true, snap);
+        break;
+      }
+      case 'stream:group:finalize': {
+        const reqId = payload?.reqId || id;
+        const g = groups.get(reqId);
+        if (!g) {
+          respond(id, false, { error: 'no group' });
+          break;
+        }
+        // compute a last merged snapshot without advancing
+        const phaseReq = { id, cmd: 'stream:group:phase', payload: { reqId, phase: 1 } };
+        // Reuse phase handler by simulating
+        ctx.onmessage({ data: phaseReq });
+        break;
+      }
+      case 'stream:group:end': {
+        const reqId = payload?.reqId || id;
+        groups.delete(reqId);
+        respond(id, true, { done: true });
         break;
       }
       case 'stream:add': {
