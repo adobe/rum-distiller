@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RUM Distiller – Streaming Demo (Wrapper API)</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 2rem; }
+      header { margin-bottom: 1rem; }
+      button { margin-right: 0.5rem; }
+      pre { background: #f6f8fa; padding: 0.75rem; overflow: auto; }
+      .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start; }
+      .col { flex: 1 1 320px; min-width: 320px; }
+      small { color: #555; }
+      .topbar { margin: 0.5rem 0 1rem 0; }
+      .topbar progress { width: 100%; height: 1rem; }
+      .topbar .meta { display: flex; justify-content: space-between; }
+      .stack { display: grid; gap: 0.5rem; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>RUM Distiller – Streaming Demo (Wrapper API)</h1>
+      <p>
+        Demonstrates StreamingDataChunks: streaming ingestion + progressive computation.
+        Loads a custom module facet and series from an ESM module to validate
+        dynamic imports inside the worker.
+      </p>
+    </header>
+
+    <div class="topbar stack">
+      <div>
+        <label for="progress">Phase</label>
+        <progress id="progress" max="4" value="0"></progress>
+        <div class="meta"><small id="phaseLabel"></small><small id="mode"></small></div>
+      </div>
+      <div>
+        <label for="coverage">Ingestion</label>
+        <progress id="coverage" max="100" value="0"></progress>
+        <div class="meta"><small id="covLabel"></small><small id="reqLabel"></small></div>
+      </div>
+    </div>
+
+    <section class="row">
+      <div class="col">
+        <button id="start">Start</button>
+        <button id="cancel" disabled>Cancel</button>
+        <label>Top‑K Facet Values
+          <select id="topk">
+            <option>5</option>
+            <option selected>10</option>
+            <option>25</option>
+          </select>
+        </label>
+        <label>Phases
+          <select id="phases">
+            <option value="4">Fast (4)</option>
+            <option value="20" selected>Medium (20)</option>
+            <option value="100">Slow (100)</option>
+          </select>
+        </label>
+        <label>Filter
+          <select id="filter">
+            <option value="all" selected>All</option>
+            <option value="desktop">Desktop only</option>
+            <option value="mobile">Mobile only</option>
+          </select>
+        </label>
+      </div>
+      <div class="col">
+        <strong>Totals (pageViews, lcp)</strong>
+        <pre id="totals"></pre>
+      </div>
+      <div class="col">
+        <strong>Top‑K plainURL</strong>
+        <pre id="facets"></pre>
+      </div>
+      <div class="col">
+        <strong>Custom (demoFacet, demoSeries)</strong>
+        <pre id="custom"></pre>
+      </div>
+    </section>
+
+    <script type="module">
+      import { createStreamingDataChunks } from '../../worker/streaming.js';
+
+      // =========================
+      // UI helpers and rendering
+      // =========================
+      const $ = (id) => document.getElementById(id);
+      function setStatus(msg) { $('phaseLabel').textContent = msg; }
+      function updateCoverage(snap) {
+        const cov = Math.round((snap.ingestion?.coverage || 0) * 100);
+        $('coverage').value = cov; $('covLabel').textContent = `${cov}%`;
+        const rec = snap.ingestion?.received ?? 0; const exp = snap.ingestion?.expected ?? 0;
+        $('reqLabel').textContent = `${rec}/${exp} slices`;
+      }
+      function thresholdsArray(n) {
+        const start = 0.12; return Array.from({ length: n }, (_, i) => (i === n - 1 ? 1 : Number((start + (1 - start) * ((i + 1) / n)).toFixed(6))));
+      }
+      function updatePhaseBar(phase, n) {
+        const arr = thresholdsArray(n); let idx = 0; for (let k = 0; k < arr.length; k += 1) { if (phase + 1e-9 >= arr[k]) idx = k + 1; }
+        $('progress').max = n; $('progress').value = idx; setStatus(`Phase ${idx} / ${n}`);
+      }
+      function renderTotals(snap) {
+        const t = snap.totals || {}; const pv = t.pageViews || {}; const lcp = t.lcp || {};
+        const q50 = snap.quantiles?.lcp?.[50] ?? 0;
+        const out = { phase: snap.phase, progress: snap.progress, pageViews: { count: pv.count, sum: Math.round(pv.sum) }, lcp: { count: lcp.count, min: lcp.min, max: lcp.max, median: Math.round(q50), mean: Number(lcp.mean?.toFixed?.(1) ?? lcp.mean) } };
+        $('totals').textContent = JSON.stringify(out, null, 2);
+      }
+      function renderTopK(snap) { const top = (snap.facets?.plainURL || []).slice(0, Number($("topk").value)).map((e) => ({ value: e.value, weight: Math.round(e.weight) })); $('facets').textContent = JSON.stringify(top, null, 2); }
+      function renderCustom(snap) { const ds = snap.totals?.demoSeries || {}; const top = (snap.facets?.demoFacet || []).slice(0, 10); $('custom').textContent = JSON.stringify({ demoSeries: ds, demoFacet: top }, null, 2); }
+      function clearOutputs() { $('totals').textContent = ''; $('facets').textContent = ''; $('custom').textContent = ''; $('progress').value = 0; setStatus(''); }
+
+      // =========================
+      // Synthetic data (for demo only)
+      // =========================
+      function mkBundle(id, url, weight, lcp = 1200) { return { id: String(id), host: new URL(url).hostname, url, userAgent: (id % 2 === 0) ? 'desktop:macos' : 'mobile:ios', time: new Date(2025, 0, 1, 12, 0, id % 60).toISOString(), timeSlot: '2025-01-01T12:00:00Z', weight, cwvLCP: lcp, events: [ { checkpoint: 'enter', source: 'https://example.com/ref' }, { checkpoint: 'cwv-lcp', value: lcp } ] }; }
+      function rng(seed = 42) { let t = seed >>> 0; return function rand() { t += 0x6D2B79F5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; }; }
+      function makeZipfSampler(n, s = 1.1, rand = Math.random) { const weights = new Array(n); let Z = 0; for (let i = 0; i < n; i += 1) { const w = 1 / Math.pow(i + 1, s); weights[i] = w; Z += w; } const cdf = new Array(n); let acc = 0; for (let i = 0; i < n; i += 1) { acc += weights[i] / Z; cdf[i] = acc; } return function sample() { const r = rand(); let lo = 0, hi = n - 1; while (lo < hi) { const mid = (lo + hi) >> 1; if (cdf[mid] >= r) hi = mid; else lo = mid + 1; } return lo; }; }
+      function mkSlices(sliceCount) { const TOTAL = 240 * 1000; const CHUNK_COUNT = Math.max(30, Math.min(100, sliceCount|0 || 60)); const PER_CHUNK = Math.floor(TOTAL / CHUNK_COUNT); const urls = Array.from({ length: 200 }, (_, i) => `https://example.com/p/${i}`); const rand = rng(42); const zipf = makeZipfSampler(urls.length, 1.07, rand); const chunks = []; let id = 1; for (let c = 0; c < CHUNK_COUNT; c += 1) { const rumBundles = []; for (let i = 0; i < PER_CHUNK; i += 1) { const ui = zipf(); const w = 1 + ((i % 5) * 2); const lcp = 600 + Math.floor(rand() * 1800); rumBundles.push(mkBundle(id++, urls[ui], w, lcp)); } chunks.push({ date: '2025-01-01', rumBundles }); } return chunks; }
+
+      // =========================
+      // Streaming setup and wiring
+      // =========================
+      let inflight = { cancel: () => {} };
+      let dcRef = null;
+
+      function buildStreaming() {
+        const workerUrl = new URL('../../worker/analysis.worker.js', import.meta.url);
+        const dc = createStreamingDataChunks(workerUrl);
+        // Enable parallelism by default (wrapper selects orchestrator worker when shards > 1)
+        const hc = (typeof navigator !== 'undefined' && navigator && navigator.hardwareConcurrency)
+          ? Number(navigator.hardwareConcurrency) : 4;
+        const shards = Math.max(2, (hc || 4));
+        dc.shards = shards;
+        // Configure series/facets
+        dc.addDistillerSeries('pageViews'); dc.addDistillerSeries('lcp'); dc.addDistillerFacet('plainURL');
+        // Custom facet/series from ESM module
+        const modsUrl = new URL('./demo-mods.js', import.meta.url); dc.addModuleFacet('demoFacet', modsUrl); dc.addModuleSeries('demoSeries', modsUrl);
+        // Thresholds, quantiles, top‑K
+        const n = Number($("phases").value); dc.setThresholds(n); dc.prepareQuantiles(0.5, 0.9, 0.99); dc.defaultTopK = Number($("topk").value);
+        // Snapshots
+        dc.onSnap((snap) => { updateCoverage(snap); updatePhaseBar(snap.phase, n); renderTotals(snap); renderTopK(snap); renderCustom(snap); });
+        // Show mode hint
+        $('mode').textContent = `(parallel: ${shards} shards)`;
+        dc.onDone(() => { setStatus('Done'); try { inflight.cancel(); } catch(e) { /* ignore */ } $('cancel').disabled = true; });
+        return dc;
+      }
+      function currentFilterSpec() { const v = $('filter')?.value || 'all'; if (v === 'desktop') return { userAgent: ['desktop:macos'] }; if (v === 'mobile') return { userAgent: ['mobile:ios'] }; return {}; }
+
+      async function startDemo() {
+        clearOutputs(); $('mode').textContent = '(starting…)'; $('cancel').disabled = false;
+        const slices = mkSlices(Math.floor(30 + Math.random() * 70));
+        const dc = buildStreaming(); dcRef = dc; dc.expectChunks = slices.length; dc.filter = currentFilterSpec();
+        const baseStep = 200; const jitter = 150; const timeouts = []; const shuffled = [...slices].sort(() => Math.random() - 0.5);
+        shuffled.forEach((sl, i) => { const delay = (i * baseStep) + Math.floor(Math.random() * jitter); const t = setTimeout(() => { dc.load(sl); }, delay); timeouts.push(t); });
+        const fin = setTimeout(() => { dc.load(); }, (slices.length * baseStep) + jitter + 100); timeouts.push(fin);
+        inflight.cancel = () => { timeouts.forEach(clearTimeout); try { dc.close(); } catch (e) { /* ignore */ } };
+      }
+
+      // =========================
+      // Event wiring
+      // =========================
+      $('start').addEventListener('click', () => {
+        // Ensure any previous run is torn down fully before starting anew
+        if (dcRef && typeof dcRef.close === 'function') {
+          try { dcRef.close(); } catch (_) { /* ignore */ }
+          dcRef = null;
+        }
+        startDemo().catch((e) => { console.error('Worker failed:', e); $('mode').textContent = '(error)'; setStatus(e?.message || 'Worker error'); });
+      });
+      $('cancel').addEventListener('click', () => { if (inflight && inflight.cancel) inflight.cancel(); });
+      const filterSel = document.getElementById('filter'); if (filterSel) filterSel.addEventListener('change', () => { if (dcRef) dcRef.filter = currentFilterSpec(); });
+    </script>
+  </body>
+  </html>
