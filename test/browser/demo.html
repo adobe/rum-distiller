@@ -130,8 +130,9 @@
         const workerUrl = new URL('../../worker/analysis.worker.js', import.meta.url);
         const dc = createStreamingDataChunks(workerUrl);
         // Enable parallelism by default (wrapper selects orchestrator worker when shards > 1)
-        const hc = (typeof navigator !== 'undefined' && navigator && navigator.hardwareConcurrency) ? navigator.hardwareConcurrency : 4;
-        const shards = Math.max(2, Math.min(4, hc));
+        const hc = (typeof navigator !== 'undefined' && navigator && navigator.hardwareConcurrency)
+          ? Number(navigator.hardwareConcurrency) : 4;
+        const shards = Math.max(2, (hc || 4));
         dc.shards = shards;
         // Configure series/facets
         dc.addDistillerSeries('pageViews'); dc.addDistillerSeries('lcp'); dc.addDistillerFacet('plainURL');
