@@ -144,7 +144,7 @@
         dc.onSnap((snap) => { updateCoverage(snap); updatePhaseBar(snap.phase, n); renderTotals(snap); renderTopK(snap); renderCustom(snap); });
         // Show mode hint
         $('mode').textContent = `(parallel: ${shards} shards)`;
-        dc.onDone(() => { setStatus('Done'); dc.close(); $('cancel').disabled = true; });
+        dc.onDone(() => { setStatus('Done'); try { inflight.cancel(); } catch(e) { /* ignore */ } $('cancel').disabled = true; });
         return dc;
       }
       function currentFilterSpec() { const v = $('filter')?.value || 'all'; if (v === 'desktop') return { userAgent: ['desktop:macos'] }; if (v === 'mobile') return { userAgent: ['mobile:ios'] }; return {}; }
@@ -156,7 +156,7 @@
         const baseStep = 200; const jitter = 150; const timeouts = []; const shuffled = [...slices].sort(() => Math.random() - 0.5);
         shuffled.forEach((sl, i) => { const delay = (i * baseStep) + Math.floor(Math.random() * jitter); const t = setTimeout(() => { dc.load(sl); }, delay); timeouts.push(t); });
         const fin = setTimeout(() => { dc.load(); }, (slices.length * baseStep) + jitter + 100); timeouts.push(fin);
-        inflight.cancel = () => { timeouts.forEach(clearTimeout); dc.close(); };
+        inflight.cancel = () => { timeouts.forEach(clearTimeout); try { dc.close(); } catch (e) { /* ignore */ } };
       }
 
       // =========================
