@@ -144,7 +144,7 @@
         dc.onSnap((snap) => { updateCoverage(snap); updatePhaseBar(snap.phase, n); renderTotals(snap); renderTopK(snap); renderCustom(snap); });
         // Show mode hint
         $('mode').textContent = `(parallel: ${shards} shards)`;
-        dc.onDone(() => { setStatus('Done'); });
+        dc.onDone(() => { setStatus('Done'); dc.close(); $('cancel').disabled = true; });
         return dc;
       }
       function currentFilterSpec() { const v = $('filter')?.value || 'all'; if (v === 'desktop') return { userAgent: ['desktop:macos'] }; if (v === 'mobile') return { userAgent: ['mobile:ios'] }; return {}; }
@@ -162,7 +162,14 @@
       // =========================
       // Event wiring
       // =========================
-      $('start').addEventListener('click', () => { startDemo().catch((e) => { console.error('Worker failed:', e); $('mode').textContent = '(error)'; setStatus(e?.message || 'Worker error'); }); });
+      $('start').addEventListener('click', () => {
+        // Ensure any previous run is torn down fully before starting anew
+        if (dcRef && typeof dcRef.close === 'function') {
+          try { dcRef.close(); } catch (_) { /* ignore */ }
+          dcRef = null;
+        }
+        startDemo().catch((e) => { console.error('Worker failed:', e); $('mode').textContent = '(error)'; setStatus(e?.message || 'Worker error'); });
+      });
       $('cancel').addEventListener('click', () => { if (inflight && inflight.cancel) inflight.cancel(); });
       const filterSel = document.getElementById('filter'); if (filterSel) filterSel.addEventListener('change', () => { if (dcRef) dcRef.filter = currentFilterSpec(); });
     </script>
