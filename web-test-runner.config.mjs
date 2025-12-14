@@ -13,9 +13,28 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { puppeteerLauncher } from '@web/test-runner-puppeteer';
 
+const isCI = !!process.env.CI;
+
 export default {
   nodeResolve: true,
-  browsers: [puppeteerLauncher({ launchOptions: { headless: 'new' } })],
+  devServer: {
+    middleware: [
+      // Enable nested module workers (sub-workers) by making the page cross-origin isolated
+      function setCOOPCOEP(ctx, next) {
+        ctx.response.set('Cross-Origin-Opener-Policy', 'same-origin');
+        ctx.response.set('Cross-Origin-Embedder-Policy', 'require-corp');
+        ctx.response.set('Cross-Origin-Resource-Policy', 'same-origin');
+        return next();
+      },
+    ],
+  },
+  browsers: [puppeteerLauncher({
+    launchOptions: {
+      headless: 'new',
+      // Some CI runners require no-sandbox to allow Chromium to start workers
+      args: isCI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
+    },
+  })],
   files: ['test/browser/**/*.test.js'],
   testFramework: {
     config: {
