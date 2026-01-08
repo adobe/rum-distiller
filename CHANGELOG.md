@@ -1,3 +1,10 @@
+## [1.22.2](https://github.com/adobe/rum-distiller/compare/v1.22.1...v1.22.2) (2026-01-08)
+
+
+### Bug Fixes
+
+* handle mixed case utm params ([b3acdce](https://github.com/adobe/rum-distiller/commit/b3acdce4e51c8e873aff3313824b21c615f99e9e))
+
 ## [1.22.1](https://github.com/adobe/rum-distiller/compare/v1.22.0...v1.22.1) (2025-12-10)
 
 
