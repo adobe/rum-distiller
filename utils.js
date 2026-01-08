@@ -183,7 +183,7 @@ export function reclassifyConsent({ source, target, checkpoint }) {
 }
 
 export function reclassifyAcquisition({ source, target, checkpoint }) {
-  if (checkpoint === 'utm' && (source.toLowerCase() === 'utm_source' || source.toLowerCase() === 'utm_medium')) {
+  if (checkpoint === 'utm' && source && (source.toLowerCase() === 'utm_source' || source.toLowerCase() === 'utm_medium')) {
     const acquisition = classifyAcquisition(target);
     if (acquisition) return { checkpoint: 'acquisition', source: acquisition };
   } else if (checkpoint === 'paid') {
