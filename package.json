@@ -19,7 +19,7 @@
     "url": "https://github.com/adobe/rum-distiller.git"
   },
   "devDependencies": {
-    "@adobe/eslint-config-helix": "3.0.16",
+    "@adobe/eslint-config-helix": "3.0.17",
     "@esm-bundle/chai": "4.3.4-fix.0",
     "@semantic-release/changelog": "6.0.3",
     "@semantic-release/git": "10.0.1",
