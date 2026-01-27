@@ -41,6 +41,15 @@ export const facets = {
       .map((segment) => {
         // only numbers and longer than 5 characters: probably an id, censor it
         if (segment.length >= 5 && /^\d+$/.test(segment)) {
+          // do not censor numeric paths that start with the current year
+          // or any of the previous 5 years (for 6 years in total)
+          // these are not likely to be sensitive
+          const currentYear = new Date().getFullYear();
+          const isRecentYear = Array.from({ length: 6 }, (_, i) => currentYear - i)
+            .some((year) => segment.startsWith(String(year)));
+          if (isRecentYear) {
+            return segment;
+          }
           return '<number>';
         }
         // only hex characters and longer than 8 characters: probably a hash, censor it
