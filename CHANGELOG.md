@@ -1,3 +1,10 @@
+# [1.23.0](https://github.com/adobe/rum-distiller/compare/v1.22.2...v1.23.0) (2026-01-27)
+
+
+### Features
+
+* unmask some numeric ids ([406d9cb](https://github.com/adobe/rum-distiller/commit/406d9cb621432774b7fdf7b7d864e1467fedbd30))
+
 ## [1.22.2](https://github.com/adobe/rum-distiller/compare/v1.22.1...v1.22.2) (2026-01-08)
 
 
