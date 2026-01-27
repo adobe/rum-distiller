@@ -41,6 +41,11 @@ export const facets = {
       .map((segment) => {
         // only numbers and longer than 5 characters: probably an id, censor it
         if (segment.length >= 5 && /^\d+$/.test(segment)) {
+          // do not censor numeric paths that start with 2025 or 2026
+          // these are not likely to be ids
+          if (segment.startsWith('2025') || segment.startsWith('2026')) {
+            return segment;
+          }
           return '<number>';
         }
         // only hex characters and longer than 8 characters: probably a hash, censor it
