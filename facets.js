@@ -37,8 +37,15 @@ export const facets = {
   url: (bundle) => {
     if (bundle.domain) return bundle.domain;
     const u = new URL(bundle.url);
+    // Check if this is an AEM/Dynamic Media asset path - preserve asset IDs in these paths
+    const isAEMAssetPath = /\/adobe\/(assets|dynamicmedia)\//.test(u.pathname);
     u.pathname = u.pathname.split('/')
       .map((segment) => {
+        // Preserve AEM/Dynamic Media asset identifiers (urn:aaid:aem:* or dm-aid--*)
+        if (isAEMAssetPath && /^(urn:aaid:aem:|dm-aid--)/.test(segment)) {
+          return segment;
+        }
+
         // only numbers and longer than 5 characters: probably an id, censor it
         if (segment.length >= 5 && /^\d+$/.test(segment)) {
           // do not censor numeric paths that start with the current year

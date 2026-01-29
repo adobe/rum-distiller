@@ -75,6 +75,26 @@ describe('facets:url', () => {
     assert.equal(facets.url({ domain: 'custom.domain' }), 'custom.domain');
   });
 
+  it('url:AEM/DynamicMedia asset paths preserve asset identifiers', () => {
+    // AEM asset URLs with urn:aaid:aem: pattern should preserve the full identifier
+    assert.equal(
+      facets.url({ url: 'https://media.example.com/adobe/assets/urn:aaid:aem:b4bdbb5b-61da-4cb8-9a78-7749d5b5cd77/as/Barrel-NavCar-wk01-03.jpg' }),
+      'https://media.example.com/adobe/assets/urn:aaid:aem:b4bdbb5b-61da-4cb8-9a78-7749d5b5cd77/as/Barrel-NavCar-wk01-03.jpg',
+    );
+
+    // Dynamic Media URLs with dm-aid-- pattern should preserve the full identifier
+    assert.equal(
+      facets.url({ url: 'https://media.example.com/adobe/dynamicmedia/deliver/dm-aid--8450ffe2-5f8e-433e-af82-8d002176ad5f/vq-pass-iphone-english.png' }),
+      'https://media.example.com/adobe/dynamicmedia/deliver/dm-aid--8450ffe2-5f8e-433e-af82-8d002176ad5f/vq-pass-iphone-english.png',
+    );
+
+    // UUIDs outside of AEM/DM paths should still be obfuscated
+    assert.equal(
+      facets.url({ url: 'https://www.example.com/user/b4bdbb5b-61da-4cb8-9a78-7749d5b5cd77' }),
+      `https://www.example.com/user/${encodeURIComponent('<uuid>')}`,
+    );
+  });
+
   it('url:DataChunks', () => {
     const d = new DataChunks();
     d.load(testChunks);
