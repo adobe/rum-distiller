@@ -10,7 +10,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Use Node.js 24.x
@@ -19,7 +19,7 @@ jobs:
           node-version: '24.x'
       - run: npm ci
       - run: npm run test-ci
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Semantic Release (Dry Run)
@@ -41,7 +41,7 @@ jobs:
       pull-requests: write
       id-token: write # needed for npm trusted publishers with OIDC
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Use Node.js 24.x
