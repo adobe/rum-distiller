@@ -164,9 +164,12 @@ ctx.onmessage = async (ev) => {
         }
         const idx = Math.max(0, Math.min(g.runs.length - 1, Number(payload?.shard) || 0));
         const run = g.runs[idx];
-        await run.ingest(payload?.chunks || [], Number(payload?.requestsDelta) || 0);
-        if (Number.isFinite(payload?.phase)) await run.advanceTo(Number(payload.phase));
-        respond(id, true, run.snapshot());
+        let snap = await run.ingest(
+          payload?.chunks || [],
+          Number(payload?.requestsDelta) || 0,
+        );
+        if (Number.isFinite(payload?.phase)) snap = await run.advanceTo(Number(payload.phase));
+        respond(id, true, snap);
         break;
       }
       case 'stream:group:phase': {
@@ -187,8 +190,7 @@ ctx.onmessage = async (ev) => {
         for (let i = 0; i < g.runs.length; i += 1) {
           const r = g.runs[i];
           // eslint-disable-next-line no-await-in-loop
-          await r.advanceTo(phase);
-          const snap = r.snapshot();
+          const snap = await r.advanceTo(phase);
           minPhase = Math.min(minPhase, snap.phase || 0);
           received += snap?.ingestion?.received || 0;
           expected += snap?.ingestion?.expected || 0;
@@ -279,12 +281,15 @@ ctx.onmessage = async (ev) => {
           break;
         }
         // Accept chunks and optional requestsDelta
-        await run.ingest(payload?.chunks || [], Number(payload?.requestsDelta) || 0);
+        let snap = await run.ingest(
+          payload?.chunks || [],
+          Number(payload?.requestsDelta) || 0,
+        );
         // Optionally advance to a phase (defaults to current)
         if (Number.isFinite(payload?.phase)) {
-          await run.advanceTo(Number(payload.phase));
+          snap = await run.advanceTo(Number(payload.phase));
         }
-        respond(id, true, run.snapshot());
+        respond(id, true, snap);
         break;
       }
       case 'stream:phase': {
@@ -294,8 +299,8 @@ ctx.onmessage = async (ev) => {
           respond(id, false, { error: 'no streaming run' });
           break;
         }
-        await run.advanceTo(Number(payload?.phase) || 0);
-        respond(id, true, run.snapshot());
+        const snap = await run.advanceTo(Number(payload?.phase) || 0);
+        respond(id, true, snap);
         break;
       }
       case 'stream:end': {

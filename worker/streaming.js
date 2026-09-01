@@ -39,6 +39,7 @@ export class StreamingRun {
     this.filter = filterSpec || {};
     this.yieldEvery = yieldEvery;
     this.cancelCheck = cancelCheck;
+    this.operationQueue = Promise.resolve();
 
     // Lookup tables (built-ins + custom)
     this.seriesFns = { ...seriesMod, ...(config.customSeries || {}) };
@@ -76,17 +77,29 @@ export class StreamingRun {
     });
   }
 
-  async finalize() {
-    this.expected = Math.max(this.expected, this.received);
-    return this.snapshot();
+  _enqueue(operation) {
+    const queued = this.operationQueue.then(operation, operation);
+    this.operationQueue = queued.catch(() => {});
+    return queued;
+  }
+
+  finalize() {
+    return this._enqueue(() => {
+      this.expected = Math.max(this.expected, this.received);
+      return this.snapshot();
+    });
   }
 
   coverage() { return Math.min(1, this.received / this.expected); }
 
-  async ingest(chunks, requestsDelta = 1) {
+  ingest(chunks, requestsDelta = 1) {
+    return this._enqueue(() => this._ingest(chunks, requestsDelta));
+  }
+
+  async _ingest(chunks, requestsDelta = 1) {
     this.received += Number(requestsDelta) || 0;
     if (!chunks || chunks.length === 0) {
-      return;
+      return this.snapshot();
     }
 
     // Use a reusable DataChunks to filter just this delta
@@ -122,9 +135,14 @@ export class StreamingRun {
         this.bins[bin].push(b);
       }
     }
+    return this.snapshot();
   }
 
-  async advanceTo(newPhase) {
+  advanceTo(newPhase) {
+    return this._enqueue(() => this._advanceTo(newPhase));
+  }
+
+  async _advanceTo(newPhase) {
     const target = Math.max(this.phase, Math.min(1, Number(newPhase) || 0));
     if (target <= this.phase) return this.snapshot();
     const endBin = Math.min(this.BINS - 1, Math.floor(target * this.BINS));
@@ -259,6 +277,7 @@ export class StreamingRun {
       totals,
       approxQuantiles,
       mergeableQuantiles: this.mergeable.values(),
+      mergeableState: this.mergeable.state(),
       facets,
       ingestion: { received: this.received, expected: this.expected, coverage: this.coverage() },
     };
@@ -411,10 +430,11 @@ export function createStreamingDataChunks(workerInput) {
         seq += 1;
         w.postMessage({ id: seq, cmd: 'cancel', payload: { targetId: id } });
       };
-      promise.finally(() => {
+      const cleanup = () => {
         if (signal && onAbort) signal.removeEventListener('abort', onAbort);
         if (to) clearTimeout(to);
-      });
+      };
+      promise.then(cleanup, cleanup);
       return { id, promise, cancel };
     }
     return {
@@ -466,6 +486,8 @@ export function createStreamingDataChunks(workerInput) {
   let lastSnap = null;
   const loadedSlices = [];
   let errorHandler = null;
+  let doneEmitted = false;
+  let phaseInFlight = false;
   // Restart coordination
   let restarting = false;
   let restartSeq = 0;
@@ -483,15 +505,32 @@ export function createStreamingDataChunks(workerInput) {
     return {
       ...snap,
       progress: computeProgress(snap),
-      quantiles: hasMq ? mq : (snap.exactQuantiles || snap.approxQuantiles),
+      quantiles: snap.exactQuantiles || (hasMq ? mq : snap.approxQuantiles),
     };
+  }
+
+  function emitSnapshot(snap) {
+    const enriched = enrich(snap);
+    snapHandler?.(enriched);
+    if (
+      !doneEmitted
+      && enriched.progress >= 1 - PHASE_EPSILON
+      && doneHandler
+    ) {
+      doneEmitted = true;
+      doneHandler(enriched);
+    }
+    return enriched;
   }
 
   let initPromise = null;
 
   async function ensureInit() {
     if (reqId != null) return;
-    if (initPromise) { await initPromise; return; }
+    if (initPromise) {
+      await initPromise;
+      return;
+    }
     if (!session) {
       let target = workerInput;
       const isObj = target && typeof target === 'object' && typeof target.postMessage === 'function';
@@ -502,6 +541,7 @@ export function createStreamingDataChunks(workerInput) {
       session = createSession(target);
     }
     initPromise = (async () => {
+      doneEmitted = false;
       for (let i = 0; i < moduleFacets.length; i += 1) {
         const { name, url } = moduleFacets[i];
         // eslint-disable-next-line no-await-in-loop
@@ -529,7 +569,11 @@ export function createStreamingDataChunks(workerInput) {
       await init.promise;
       reqId = init.id;
     })();
-    try { await initPromise; } finally { initPromise = null; }
+    try {
+      await initPromise;
+    } finally {
+      initPromise = null;
+    }
     const th = cfg.thresholds;
     ticker = setInterval(async () => {
       const cov = lastSnap?.ingestion?.coverage || 0;
@@ -546,19 +590,16 @@ export function createStreamingDataChunks(workerInput) {
       } else {
         target = Math.min(1, desired);
       }
-      if (target > current + 1e-6) {
+      if (target > current + 1e-6 && !phaseInFlight) {
+        phaseInFlight = true;
         try {
           const req = session.streamPhase({ reqId, phase: Number(target.toFixed(6)) });
           const p = await req.promise;
           lastSnap = p;
-          if (snapHandler) {
-            const enriched = enrich(p);
-            snapHandler(enriched);
-            if (enriched.progress >= 1 - PHASE_EPSILON && doneHandler) {
-              doneHandler(enriched);
-            }
-          }
-        } catch (_) { /* ignore */ }
+          emitSnapshot(p);
+        } catch (_) { /* ignore */ } finally {
+          phaseInFlight = false;
+        }
       }
       if (cov >= 1 && (lastSnap?.phase || 0) >= 1 - PHASE_EPSILON) {
         clearInterval(ticker);
@@ -674,7 +715,13 @@ export function createStreamingDataChunks(workerInput) {
       const hasData = chunks && (Array.isArray(chunks) ? chunks.length : true);
       // If this is a finalize call (no chunks) and no run is active, do nothing
       if (!hasData && reqId == null) {
-        return lastSnap || { phase: 0, totals: {}, facets: {}, approxQuantiles: {}, ingestion: { received: 0, expected: 0, coverage: 0 } };
+        return lastSnap || {
+          phase: 0,
+          totals: {},
+          facets: {},
+          approxQuantiles: {},
+          ingestion: { received: 0, expected: 0, coverage: 0 },
+        };
       }
       await ensureInit();
       if (hasData) {
@@ -691,24 +738,12 @@ export function createStreamingDataChunks(workerInput) {
         const add = session.streamAdd({ reqId, chunks: arr, requestsDelta: 1 });
         const snap = await add.promise;
         lastSnap = snap;
-        if (snapHandler) {
-          const enriched = enrich(snap);
-          snapHandler(enriched);
-          if (enriched.progress >= 1 - PHASE_EPSILON && doneHandler) {
-            doneHandler(enriched);
-          }
-        }
+        emitSnapshot(snap);
         return snap;
       }
       const fin = await session.streamFinalize({ reqId }).promise;
       lastSnap = fin;
-      if (snapHandler) {
-        const enriched = enrich(fin);
-        snapHandler(enriched);
-        if (enriched.progress >= 1 - PHASE_EPSILON && doneHandler) {
-          doneHandler(enriched);
-        }
-      }
+      emitSnapshot(fin);
       return fin;
     },
     async restartWithCurrentFilter() {
@@ -766,7 +801,9 @@ export function createStreamingDataChunks(workerInput) {
       }
       reqId = null;
       // Proactively terminate the worker to free threads/processes
-      try { session?.terminate?.(); } catch (_) { /* ignore */ }
+      try {
+        session?.terminate?.();
+      } catch (_) { /* ignore */ }
       session = null;
     },
   };

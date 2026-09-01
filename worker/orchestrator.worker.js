@@ -23,7 +23,11 @@ function respond(id, ok, result) {
 function createSubWorker() {
   const w = new Worker(new URL('./analysis.worker.js', import.meta.url), { type: 'module' });
   // Prevent subworker errors from bubbling to the main page; record locally instead.
-  const swallow = (e) => { try { e.preventDefault?.(); } catch (_) { /* ignore */ } };
+  const swallow = (e) => {
+    try {
+      e.preventDefault?.();
+    } catch (_) { /* ignore */ }
+  };
   w.addEventListener('error', swallow);
   w.addEventListener('messageerror', swallow);
   return w;
