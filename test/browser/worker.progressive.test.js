@@ -23,6 +23,7 @@ function mkBundle(id, url, weight, lcp = 1200) {
     time: new Date(2025, 0, 1, 12, 0, id % 60).toISOString(),
     timeSlot: '2025-01-01T12:00:00Z',
     weight,
+    cwvLCP: lcp,
     events: [
       { checkpoint: 'enter', source: 'https://example.com/ref' },
       { checkpoint: 'cwv-lcp', value: lcp },

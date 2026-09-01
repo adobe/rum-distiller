@@ -10,6 +10,7 @@
  * governing permissions and limitations under the License.
  */
 /* global describe, it */
+/* eslint-disable max-classes-per-file */
 
 import { expect } from '@esm-bundle/chai';
 
@@ -110,6 +111,62 @@ class FakeWorker {
   }
 }
 
+class CompleteQuantileWorker extends FakeWorker {
+  postMessage(message) {
+    const { id, cmd, payload } = message;
+    if (cmd !== 'stream:add') {
+      super.postMessage(message);
+      return;
+    }
+    this.calls.push({ id, cmd, payload });
+    this.received += Number(payload?.requestsDelta) || 0;
+    this.respond(id, true, {
+      phase: 1,
+      totals: {},
+      approxQuantiles: { lcp: { 50: 100 } },
+      exactQuantiles: { lcp: { 50: 200 } },
+      mergeableQuantiles: { lcp: { 50: 300 } },
+      facets: {},
+      ingestion: { received: 1, expected: 1, coverage: 1 },
+    });
+  }
+}
+
+class SlowPhaseWorker extends FakeWorker {
+  constructor() {
+    super();
+    this.activePhases = 0;
+    this.maxActivePhases = 0;
+  }
+
+  postMessage(message) {
+    const { id, cmd, payload } = message;
+    if (cmd !== 'stream:phase') {
+      super.postMessage(message);
+      return;
+    }
+    this.calls.push({ id, cmd, payload });
+    this.activePhases += 1;
+    this.maxActivePhases = Math.max(this.maxActivePhases, this.activePhases);
+    setTimeout(() => {
+      this.activePhases -= 1;
+      this.onmessage?.({
+        data: {
+          id,
+          ok: true,
+          result: {
+            phase: Number(payload?.phase) || 0,
+            totals: {},
+            approxQuantiles: {},
+            facets: {},
+            ingestion: { received: 1, expected: 1, coverage: 1 },
+          },
+        },
+      });
+    }, 20);
+  }
+}
+
 function mkChunk(n = 10, base = 0) {
   const rumBundles = Array.from({ length: n }, (_, i) => ({
     id: String(base + i + 1),
@@ -134,6 +191,12 @@ describe('streaming wrapper behavior (fake worker)', () => {
     dc.addDistillerSeries('pageViews');
     dc.expectChunks = 1;
     let error;
+    const unhandled = [];
+    const onUnhandled = (event) => {
+      unhandled.push(event.reason);
+      event.preventDefault();
+    };
+    window.addEventListener('unhandledrejection', onUnhandled);
     dc.onError((e) => {
       error = e;
     });
@@ -153,9 +216,81 @@ describe('streaming wrapper behavior (fake worker)', () => {
       // eslint-disable-next-line no-await-in-loop, no-promise-executor-return
       await new Promise((r) => setTimeout(r, 5));
     }
+    await new Promise((r) => {
+      setTimeout(r, 20);
+    });
+    window.removeEventListener('unhandledrejection', onUnhandled);
     expect(error).to.not.equal(undefined);
     // request() rejects with the raw result object when ok=false
     expect(error).to.have.property('error', 'boom');
+    expect(unhandled).to.deep.equal([]);
+  });
+
+  it('emits onDone without requiring an onSnap handler', async () => {
+    const { createStreamingDataChunks } = await import('../../worker/streaming.js');
+    const fw = new FakeWorker();
+    const dc = createStreamingDataChunks(fw);
+    dc.addDistillerSeries('pageViews');
+    dc.expectChunks = 1;
+    dc.setThresholds(1);
+    dc.autoAdvanceIntervalMs = 1;
+    let doneCalls = 0;
+    const done = new Promise((resolve) => {
+      dc.onDone(() => {
+        doneCalls += 1;
+        resolve();
+      });
+    });
+
+    await dc.load(mkChunk(5));
+    await Promise.race([
+      done,
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('onDone timed out')), 500);
+      }),
+    ]);
+    expect(doneCalls).to.equal(1);
+    await dc.close();
+  });
+
+  it('prefers exact quantiles at completion', async () => {
+    const { createStreamingDataChunks } = await import('../../worker/streaming.js');
+    const dc = createStreamingDataChunks(new CompleteQuantileWorker());
+    dc.addDistillerSeries('lcp');
+    dc.expectChunks = 1;
+    const observed = new Promise((resolve) => {
+      dc.onSnap((snap) => {
+        const { 50: median } = snap.quantiles.lcp;
+        resolve(median);
+      });
+    });
+
+    await dc.load(mkChunk(5));
+    expect(await observed).to.equal(200);
+    await dc.close();
+  });
+
+  it('does not overlap automatic phase requests', async () => {
+    const { createStreamingDataChunks } = await import('../../worker/streaming.js');
+    const fw = new SlowPhaseWorker();
+    const dc = createStreamingDataChunks(fw);
+    dc.addDistillerSeries('pageViews');
+    dc.expectChunks = 1;
+    dc.setThresholds(1);
+    dc.autoAdvanceIntervalMs = 1;
+    const done = new Promise((resolve) => {
+      dc.onDone(resolve);
+    });
+
+    await dc.load(mkChunk(5));
+    await Promise.race([
+      done,
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('phase advance timed out')), 500);
+      }),
+    ]);
+    expect(fw.maxActivePhases).to.equal(1);
+    await dc.close();
   });
 
   it('replays only up to maxSlices during restart', async () => {

@@ -91,6 +91,16 @@ export class MergeableHistogram {
     return out;
   }
 
+  state() {
+    return {
+      bins: this.bins,
+      counts: Array.from(this.counts),
+      total: this.total,
+      min: this.min,
+      max: this.max,
+    };
+  }
+
   /* eslint-disable no-underscore-dangle */
   _indexOf(x) {
     if (!(this.max > this.min)) return 0;
@@ -161,6 +171,14 @@ export class MergeableHistMulti {
     const out = {};
     this.map.forEach((h, name) => {
       out[name] = h.values(this.ps);
+    });
+    return out;
+  }
+
+  state() {
+    const out = {};
+    this.map.forEach((h, name) => {
+      out[name] = h.state();
     });
     return out;
   }

@@ -22,6 +22,7 @@ function mkBundle(id, url, weight, lcp = 1200) {
     time: new Date(2025, 0, 1, 12, 0, id % 60).toISOString(),
     timeSlot: '2025-01-01T12:00:00Z',
     weight,
+    cwvLCP: lcp,
     events: [
       { checkpoint: 'enter', source: 'https://example.com/ref' },
       { checkpoint: 'cwv-lcp', value: lcp },
@@ -62,7 +63,9 @@ describe('parallel streaming wrapper (orchestrator)', () => {
 
     const results = [];
     let doneResolve;
-    const doneP = new Promise((res) => { doneResolve = res; });
+    const doneP = new Promise((res) => {
+      doneResolve = res;
+    });
     dc.onSnap((snap) => {
       results.push(snap);
       if (snap.progress >= 1 - 1e-9) doneResolve();
@@ -78,9 +81,8 @@ describe('parallel streaming wrapper (orchestrator)', () => {
     await doneP;
 
     const last = results[results.length - 1];
-    // Find a snapshot that has lcp quantiles populated
-    // Quantiles are merged from shard histograms; ensure we expose a quantiles object
-    expect(last).to.have.property('quantiles');
+    expect(last.quantiles.lcp).to.have.property('50').that.is.a('number');
+    expect(last.quantiles.lcp).to.have.property('90').that.is.a('number');
     expect(last.progress).to.equal(1);
     expect(last.facets.plainURL.length).to.be.at.most(5);
   });
