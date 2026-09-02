@@ -26,7 +26,9 @@ export class MergeableHistogram {
   }
 
   push(x, w = 1) {
-    if (!Number.isFinite(x)) return;
+    if (!Number.isFinite(x)) {
+      return;
+    }
     const weight = Number.isFinite(w) && w > 0 ? w : 1;
     if (x < this.min || x > this.max) {
       const newMin = Math.min(this.min, x);
@@ -39,7 +41,9 @@ export class MergeableHistogram {
   }
 
   merge(other) {
-    if (!other || other.total === 0) return this;
+    if (!other || other.total === 0) {
+      return this;
+    }
     const newMin = Math.min(this.min, other.min);
     const newMax = Math.max(this.max, other.max);
     this._rebinTo(newMin, newMax);
@@ -48,7 +52,10 @@ export class MergeableHistogram {
       const oBins = other.counts.length;
       for (let i = 0; i < oBins; i += 1) {
         const c = other.counts[i];
-        if (c === 0) continue; // eslint-disable-line no-continue
+        if (c === 0) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
         const x0 = other._valueAtBin(i + 0.0);
         const x1 = other._valueAtBin(i + 1.0);
         // deposit at center
@@ -103,21 +110,29 @@ export class MergeableHistogram {
 
   /* eslint-disable no-underscore-dangle */
   _indexOf(x) {
-    if (!(this.max > this.min)) return 0;
+    if (!(this.max > this.min)) {
+      return 0;
+    }
     const t = (x - this.min) / (this.max - this.min);
     const idx = Math.floor(t * this.bins);
     return Math.min(this.bins - 1, Math.max(0, idx));
   }
 
   _valueAtBin(binPos) {
-    if (!(this.max > this.min)) return this.min;
+    if (!(this.max > this.min)) {
+      return this.min;
+    }
     const t = binPos / this.bins;
     return this.min + t * (this.max - this.min);
   }
 
   _rebinTo(newMin, newMax) {
-    if (!Number.isFinite(newMin) || !Number.isFinite(newMax)) return;
-    if (newMin === Infinity && newMax === -Infinity) return;
+    if (!Number.isFinite(newMin) || !Number.isFinite(newMax)) {
+      return;
+    }
+    if (newMin === Infinity && newMax === -Infinity) {
+      return;
+    }
     if (this.total === 0) {
       this.min = newMin;
       this.max = newMax;
@@ -133,7 +148,10 @@ export class MergeableHistogram {
     this.max = newMax;
     for (let i = 0; i < oldBins; i += 1) {
       const c = oldCounts[i];
-      if (c === 0) continue; // eslint-disable-line no-continue
+      if (c === 0) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       const x0 = oldMin === oldMax ? oldMin : oldMin + (i / oldBins) * (oldMax - oldMin);
       const x1 = oldMin === oldMax ? oldMax : oldMin + ((i + 1) / oldBins) * (oldMax - oldMin);
       const xm = (x0 + x1) / 2;
@@ -151,7 +169,9 @@ export class MergeableHistMulti {
   }
 
   ensure(name) {
-    if (!this.map.has(name)) this.map.set(name, new MergeableHistogram(this.bins));
+    if (!this.map.has(name)) {
+      this.map.set(name, new MergeableHistogram(this.bins));
+    }
     return this.map.get(name);
   }
 
@@ -160,7 +180,9 @@ export class MergeableHistMulti {
   }
 
   mergeFrom(otherMulti) {
-    if (!otherMulti) return this;
+    if (!otherMulti) {
+      return this;
+    }
     otherMulti.map.forEach((oh, name) => {
       this.ensure(name).merge(oh);
     });

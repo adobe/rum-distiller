@@ -28,13 +28,15 @@ export default {
       },
     ],
   },
-  browsers: [puppeteerLauncher({
-    launchOptions: {
-      headless: 'new',
-      // Some CI runners require no-sandbox to allow Chromium to start workers
-      args: isCI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
-    },
-  })],
+  browsers: [
+    puppeteerLauncher({
+      launchOptions: {
+        headless: 'new',
+        // Some CI runners require no-sandbox to allow Chromium to start workers
+        args: isCI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
+      },
+    }),
+  ],
   files: ['test/browser/**/*.test.js'],
   testFramework: {
     config: {

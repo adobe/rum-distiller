@@ -21,7 +21,9 @@ class WorkerSelfStub {
     this.onmessageerror = null;
   }
 
-  postMessage(msg) { this.messages.push(msg); }
+  postMessage(msg) {
+    this.messages.push(msg);
+  }
 }
 
 // Utilities
@@ -96,7 +98,9 @@ describe('analysis.worker cancellation', () => {
     // eslint-disable-next-line no-constant-condition
     while (true) {
       doneMsg = findMessageById(selfStub, runId, (m) => m?.result?.done);
-      if (doneMsg) break;
+      if (doneMsg) {
+        break;
+      }
       assert.ok(Date.now() - start < 2000, 'timeout waiting for cancelled result');
       // eslint-disable-next-line no-await-in-loop, no-promise-executor-return
       await new Promise((r) => setTimeout(r, 10));

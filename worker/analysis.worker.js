@@ -81,26 +81,35 @@ ctx.onmessage = async (ev) => {
         cancelled.delete(id);
         try {
           const checkCancel = () => {
-            if (cancelled.has(id)) throw new Error('cancelled');
+            if (cancelled.has(id)) {
+              throw new Error('cancelled');
+            }
           };
-          const run = new ProgressiveRun(
-            loadedChunks,
-            config,
-            filterSpec,
-            { yieldEvery: 256, cancelCheck: checkCancel },
-          );
+          const run = new ProgressiveRun(loadedChunks, config, filterSpec, {
+            yieldEvery: 256,
+            cancelCheck: checkCancel,
+          });
           for (let i = 0; i < phases.length; i += 1) {
-            if (cancelled.has(id)) break;
+            if (cancelled.has(id)) {
+              break;
+            }
             // eslint-disable-next-line no-await-in-loop
             const snap = await run.advanceTo(phases[i]);
-            if (cancelled.has(id)) break;
+            if (cancelled.has(id)) {
+              break;
+            }
             ctx.postMessage({
-              id, ok: true, partial: true, result: snap,
+              id,
+              ok: true,
+              partial: true,
+              result: snap,
             });
             // Small pause so cancel messages can be processed promptly
             // eslint-disable-next-line no-await-in-loop, no-promise-executor-return
             await new Promise((r) => setTimeout(r, 10));
-            if (cancelled.has(id)) break;
+            if (cancelled.has(id)) {
+              break;
+            }
           }
           const wasCancelled = cancelled.has(id);
           cancelled.delete(id);
@@ -108,8 +117,11 @@ ctx.onmessage = async (ev) => {
         } catch (e) {
           const wasCancelled = e?.message === 'cancelled' || cancelled.has(id);
           cancelled.delete(id);
-          if (wasCancelled) respond(id, true, { done: true, cancelled: true });
-          else throw e;
+          if (wasCancelled) {
+            respond(id, true, { done: true, cancelled: true });
+          } else {
+            throw e;
+          }
         }
         break;
       }
@@ -118,14 +130,14 @@ ctx.onmessage = async (ev) => {
         const expected = Number(payload?.expectedRequests) || 1;
         const reqId = id; // tie lifecycle to this request id
         const checkCancel = () => {
-          if (cancelled.has(reqId)) throw new Error('cancelled');
+          if (cancelled.has(reqId)) {
+            throw new Error('cancelled');
+          }
         };
-        const run = new StreamingRun(
-          expected,
-          config,
-          filterSpec,
-          { yieldEvery: 256, cancelCheck: checkCancel },
-        );
+        const run = new StreamingRun(expected, config, filterSpec, {
+          yieldEvery: 256,
+          cancelCheck: checkCancel,
+        });
         streaming.set(reqId, run);
         respond(id, true, { ok: true });
         break;
@@ -136,21 +148,22 @@ ctx.onmessage = async (ev) => {
         const shards = Math.max(1, Number(payload?.shards) || 1);
         const reqId = id;
         const checkCancel = () => {
-          if (cancelled.has(reqId)) throw new Error('cancelled');
+          if (cancelled.has(reqId)) {
+            throw new Error('cancelled');
+          }
         };
         const runs = [];
         for (let s = 0; s < shards; s += 1) {
-          runs.push(new StreamingRun(expected, config, filterSpec, {
-            yieldEvery: 256,
-            cancelCheck: checkCancel,
-          }));
+          runs.push(
+            new StreamingRun(expected, config, filterSpec, {
+              yieldEvery: 256,
+              cancelCheck: checkCancel,
+            }),
+          );
         }
         groups.set(reqId, {
           runs,
-          mergeable: new MergeableHistMulti(
-            config.quantiles || [0.5, 0.9, 0.99],
-            256,
-          ),
+          mergeable: new MergeableHistMulti(config.quantiles || [0.5, 0.9, 0.99], 256),
         });
         respond(id, true, { ok: true });
         break;
@@ -164,11 +177,10 @@ ctx.onmessage = async (ev) => {
         }
         const idx = Math.max(0, Math.min(g.runs.length - 1, Number(payload?.shard) || 0));
         const run = g.runs[idx];
-        let snap = await run.ingest(
-          payload?.chunks || [],
-          Number(payload?.requestsDelta) || 0,
-        );
-        if (Number.isFinite(payload?.phase)) snap = await run.advanceTo(Number(payload.phase));
+        let snap = await run.ingest(payload?.chunks || [], Number(payload?.requestsDelta) || 0);
+        if (Number.isFinite(payload?.phase)) {
+          snap = await run.advanceTo(Number(payload.phase));
+        }
         respond(id, true, snap);
         break;
       }
@@ -198,7 +210,10 @@ ctx.onmessage = async (ev) => {
           // merge totals
           Object.entries(snap.totals || {}).forEach(([name, t]) => {
             const cur = totals[name] || {
-              count: 0, sum: 0, min: Infinity, max: -Infinity,
+              count: 0,
+              sum: 0,
+              min: Infinity,
+              max: -Infinity,
             };
             cur.count += t.count || 0;
             cur.sum += t.sum || 0;
@@ -220,7 +235,9 @@ ctx.onmessage = async (ev) => {
           });
           // merge mergeable quantiles
           // Pull the internal histogram from the run
-          if (r.mergeable) mergeable.mergeFrom(r.mergeable);
+          if (r.mergeable) {
+            mergeable.mergeFrom(r.mergeable);
+          }
         }
         // finalize totals.mean
         Object.entries(totals).forEach(([name, t]) => {
@@ -233,9 +250,9 @@ ctx.onmessage = async (ev) => {
         for (let f = 0; f < names.length; f += 1) {
           const fname = names[f];
           const m = facets[fname] || new Map();
-          const k = (typeof config.topK === 'object' && config.topK)
-            ? (config.topK[fname] || config.defaultTopK || 50)
-            : (config.topK || config.defaultTopK || 50);
+          const k = typeof config.topK === 'object' && config.topK
+            ? config.topK[fname] || config.defaultTopK || 50
+            : config.topK || config.defaultTopK || 50;
           outFacets[fname] = Array.from(m.entries())
             .map(([value, data]) => ({ value, count: data.count, weight: data.weight }))
             .sort((a, b) => b.weight - a.weight)
@@ -281,10 +298,7 @@ ctx.onmessage = async (ev) => {
           break;
         }
         // Accept chunks and optional requestsDelta
-        let snap = await run.ingest(
-          payload?.chunks || [],
-          Number(payload?.requestsDelta) || 0,
-        );
+        let snap = await run.ingest(payload?.chunks || [], Number(payload?.requestsDelta) || 0);
         // Optionally advance to a phase (defaults to current)
         if (Number.isFinite(payload?.phase)) {
           snap = await run.advanceTo(Number(payload.phase));
@@ -362,7 +376,9 @@ ctx.onmessage = async (ev) => {
         break;
       }
       case 'cancel': {
-        if (payload?.targetId != null) cancelled.add(payload.targetId);
+        if (payload?.targetId != null) {
+          cancelled.add(payload.targetId);
+        }
         respond(id, true, { cancelled: true });
         break;
       }

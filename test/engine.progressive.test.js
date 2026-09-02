@@ -16,10 +16,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import {
-  sampleChunksAt,
-  computePhaseEngine,
-} from '../worker/engine.js';
+import { sampleChunksAt, computePhaseEngine } from '../worker/engine.js';
 
 function mkBundle(id, url, weight, lcp = 1200) {
   return {
@@ -46,7 +43,7 @@ function mkChunks() {
     const rumBundles = [];
     for (let i = 0; i < 120; i += 1) {
       const ui = (i + c * 7) % urls.length;
-      const w = 1 + ((i % 5) * 2);
+      const w = 1 + (i % 5) * 2;
       const lcp = 600 + ((i * 37) % 1800);
       id += 1;
       rumBundles.push(mkBundle(id, urls[ui], w, lcp));

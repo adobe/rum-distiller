@@ -29,7 +29,9 @@ class FakeWorker {
   // helper to respond like the analysis worker
   respond(id, ok, result, partial = false) {
     const data = { id, ok, result };
-    if (partial) data.partial = true;
+    if (partial) {
+      data.partial = true;
+    }
     // defer to emulate async worker
     setTimeout(() => this.onmessage?.({ data }), 0);
   }
@@ -313,7 +315,9 @@ describe('streaming wrapper behavior (fake worker)', () => {
     const start = performance.now();
     // eslint-disable-next-line no-constant-condition
     while (fw.adds.reduce((a, b) => a + b, 0) < 2) {
-      if (performance.now() - start > 500) break;
+      if (performance.now() - start > 500) {
+        break;
+      }
       // eslint-disable-next-line no-await-in-loop, no-promise-executor-return
       await new Promise((r) => setTimeout(r, 5));
     }

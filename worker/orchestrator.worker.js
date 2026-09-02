@@ -26,7 +26,9 @@ function createSubWorker() {
   const swallow = (e) => {
     try {
       e.preventDefault?.();
-    } catch (_) { /* ignore */ }
+    } catch (_) {
+      /* ignore */
+    }
   };
   w.addEventListener('error', swallow);
   w.addEventListener('messageerror', swallow);
@@ -53,17 +55,21 @@ class SessionGroup {
     return new Promise((resolve, reject) => {
       const handler = (ev) => {
         const {
-          id: rid,
-          ok,
-          result,
-          partial,
+          id: rid, ok, result, partial,
         } = ev.data || {};
-        if (rid !== id) return;
-        if (partial && onPartial) onPartial(result);
+        if (rid !== id) {
+          return;
+        }
+        if (partial && onPartial) {
+          onPartial(result);
+        }
         if (!partial) {
           w.removeEventListener('message', handler);
-          if (ok) resolve(result);
-          else reject(result);
+          if (ok) {
+            resolve(result);
+          } else {
+            reject(result);
+          }
         }
       };
       w.addEventListener('message', handler);
@@ -73,33 +79,33 @@ class SessionGroup {
 
   async init() {
     // spawn
-    for (let i = 0; i < this.shards; i += 1) this.workers.push(createSubWorker());
+    for (let i = 0; i < this.shards; i += 1) {
+      this.workers.push(createSubWorker());
+    }
     // propagate config to each
-    await Promise.all(this.workers.map((w) => this._request(
-      w,
-      'init',
-      {
+    await Promise.all(
+      this.workers.map((w) => this._request(w, 'init', {
         thresholds: this.config.thresholds,
         series: this.config.series,
         facets: this.config.facets,
         quantiles: this.config.quantiles,
         topK: this.config.topK,
         defaultTopK: this.config.defaultTopK,
-      },
-    )));
+      })),
+    );
     // register any dynamic modules
     const facetNames = Object.keys(this.config.customFacets || {});
     const seriesNames = Object.keys(this.config.customSeries || {});
-    await Promise.all(facetNames.map((name) => Promise.all(this.workers.map((w) => this._request(
-      w,
-      'facet:import',
-      { name, url: this.config.customFacets[name] },
-    )))));
-    await Promise.all(seriesNames.map((name) => Promise.all(this.workers.map((w) => this._request(
-      w,
-      'series:import',
-      { name, url: this.config.customSeries[name] },
-    )))));
+    await Promise.all(
+      facetNames.map((name) => Promise.all(
+        this.workers.map((w) => this._request(w, 'facet:import', { name, url: this.config.customFacets[name] })),
+      )),
+    );
+    await Promise.all(
+      seriesNames.map((name) => Promise.all(
+        this.workers.map((w) => this._request(w, 'series:import', { name, url: this.config.customSeries[name] })),
+      )),
+    );
   }
 
   async streamInit({ expectedRequests, filter }) {
@@ -113,13 +119,22 @@ class SessionGroup {
       const promise = new Promise((resolve, reject) => {
         const handler = (ev) => {
           const { id: rid, ok, result } = ev.data || {};
-          if (rid !== id) return;
+          if (rid !== id) {
+            return;
+          }
           w.removeEventListener('message', handler);
-          if (ok) resolve(result);
-          else reject(result);
+          if (ok) {
+            resolve(result);
+          } else {
+            reject(result);
+          }
         };
         w.addEventListener('message', handler);
-        w.postMessage({ id, cmd: 'stream:init', payload: { expectedRequests: 1, filter: filter || {} } });
+        w.postMessage({
+          id,
+          cmd: 'stream:init',
+          payload: { expectedRequests: 1, filter: filter || {} },
+        });
       });
       // wait init and store req id used for this worker
       // eslint-disable-next-line no-await-in-loop
@@ -133,7 +148,11 @@ class SessionGroup {
     this.received += Number(requestsDelta) || 0;
     const idx = (this.rr += 1) % this.shards;
     const w = this.workers[idx];
-    const snap = await this._request(w, 'stream:add', { reqId: this.runIds[idx], chunks, requestsDelta: 1 });
+    const snap = await this._request(w, 'stream:add', {
+      reqId: this.runIds[idx],
+      chunks,
+      requestsDelta: 1,
+    });
     this.last[idx] = snap;
     return this._merged();
   }
@@ -142,18 +161,24 @@ class SessionGroup {
     const snaps = await Promise.all(
       this.workers.map((w, i) => this._request(w, 'stream:phase', { reqId: this.runIds[i], phase })),
     );
-    for (let i = 0; i < snaps.length; i += 1) this.last[i] = snaps[i];
+    for (let i = 0; i < snaps.length; i += 1) {
+      this.last[i] = snaps[i];
+    }
     return this._merged();
   }
 
   async streamFinalize() {
     // align expected with received if needed
-    if (!this.expected || this.expected < this.received) this.expected = this.received;
+    if (!this.expected || this.expected < this.received) {
+      this.expected = this.received;
+    }
     return this._merged();
   }
 
   async end() {
-    await Promise.all(this.workers.map((w, i) => this._request(w, 'stream:end', { reqId: this.runIds[i] })));
+    await Promise.all(
+      this.workers.map((w, i) => this._request(w, 'stream:end', { reqId: this.runIds[i] })),
+    );
     this.workers.forEach((w) => w.terminate());
   }
 
@@ -180,11 +205,12 @@ class SessionGroup {
       const s = snaps[i];
       // totals
       names.forEach((n) => {
-        const base = (s.sampleTotals && s.sampleTotals[n])
-          ? s.sampleTotals[n]
-          : (s.totals[n] || {});
+        const base = s.sampleTotals && s.sampleTotals[n] ? s.sampleTotals[n] : s.totals[n] || {};
         const cur = samplesSum[n] || {
-          count: 0, sum: 0, min: Infinity, max: -Infinity,
+          count: 0,
+          sum: 0,
+          min: Infinity,
+          max: -Infinity,
         };
         cur.count += base.count || 0;
         cur.sum += base.sum || 0;
@@ -211,14 +237,22 @@ class SessionGroup {
         // construct a histogram from state
         const bins = st?.bins || 256;
         const h = {
-          bins, counts: st?.counts || [], min: st?.min, max: st?.max,
+          bins,
+          counts: st?.counts || [],
+          min: st?.min,
+          max: st?.max,
         };
-        if (!Number.isFinite(h.min) || !Number.isFinite(h.max)) return;
+        if (!Number.isFinite(h.min) || !Number.isFinite(h.max)) {
+          return;
+        }
         // feed centers with weights to mh
         const step = (h.max - h.min) / bins;
         for (let b = 0; b < bins; b += 1) {
           const c = h.counts[b] || 0;
-          if (!c) continue; // eslint-disable-line no-continue
+          if (!c) {
+            // eslint-disable-next-line no-continue
+            continue;
+          }
           const x = h.min + (b + 0.5) * step;
           mh.push(seriesName, x, c);
         }
@@ -234,19 +268,19 @@ class SessionGroup {
           ...t,
           count: (t.count || 0) / denom,
           sum: (t.sum || 0) / denom,
-          mean: t.count ? (t.sum / t.count) : 0,
+          mean: t.count ? t.sum / t.count : 0,
         };
       } else {
-        totalsSum[n] = { ...t, mean: t.count ? (t.sum / t.count) : 0 };
+        totalsSum[n] = { ...t, mean: t.count ? t.sum / t.count : 0 };
       }
     });
     // finalize facets array with topK
     const outFacets = {};
     facetNames.forEach((fname) => {
       const m = facets[fname] || new Map();
-      const k = (typeof this.config.topK === 'object' && this.config.topK)
-        ? (this.config.topK[fname] || this.config.defaultTopK || 50)
-        : (this.config.topK || this.config.defaultTopK || 50);
+      const k = typeof this.config.topK === 'object' && this.config.topK
+        ? this.config.topK[fname] || this.config.defaultTopK || 50
+        : this.config.topK || this.config.defaultTopK || 50;
       outFacets[fname] = Array.from(m.entries())
         .map(([value, data]) => ({ value, count: data.count, weight: data.weight }))
         .sort((a, b) => b.weight - a.weight)
@@ -265,7 +299,9 @@ class SessionGroup {
   }
 
   _coverage() {
-    if (!this.expected) return 0;
+    if (!this.expected) {
+      return 0;
+    }
     return Math.min(1, this.received / this.expected);
   }
 }
@@ -295,9 +331,7 @@ ctx.onmessage = async (ev) => {
           facets: payload?.facets || config.facets,
           quantiles: payload?.quantiles || config.quantiles,
           topK: payload?.topK ?? config.topK,
-          defaultTopK: payload?.defaultTopK
-            ?? payload?.topKDefault
-            ?? config.defaultTopK,
+          defaultTopK: payload?.defaultTopK ?? payload?.topKDefault ?? config.defaultTopK,
           customFacets: config.customFacets || {},
           customSeries: config.customSeries || {},
         };

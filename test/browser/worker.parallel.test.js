@@ -38,7 +38,7 @@ function mkChunks(nChunks = 4, per = 100) {
     const rumBundles = [];
     for (let i = 0; i < per; i += 1) {
       const ui = (i + c * 7) % urls.length;
-      const w = 1 + ((i % 5) * 2);
+      const w = 1 + (i % 5) * 2;
       const lcp = 600 + ((i * 37) % 1800);
       id += 1;
       rumBundles.push(mkBundle(id, urls[ui], w, lcp));
@@ -68,7 +68,9 @@ describe('parallel streaming wrapper (orchestrator)', () => {
     });
     dc.onSnap((snap) => {
       results.push(snap);
-      if (snap.progress >= 1 - 1e-9) doneResolve();
+      if (snap.progress >= 1 - 1e-9) {
+        doneResolve();
+      }
     });
 
     const chunks = mkChunks(4, 120);

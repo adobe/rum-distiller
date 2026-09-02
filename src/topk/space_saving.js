@@ -18,7 +18,9 @@
 
 export class SpaceSaving {
   constructor(capacity = 100) {
-    if (!Number.isFinite(capacity) || capacity <= 0) throw new Error('capacity must be > 0');
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      throw new Error('capacity must be > 0');
+    }
     // eslint-disable-next-line no-bitwise
     this.capacity = capacity | 0;
     /** @type {Map<string, { key: string, score: number, count: number, err: number }>} */
@@ -30,7 +32,9 @@ export class SpaceSaving {
   }
 
   offer(key, weight = 1) {
-    if (key == null) return;
+    if (key == null) {
+      return;
+    }
     const w = Number.isFinite(weight) ? weight : 1;
     const e = this.map.get(key);
     if (e) {
@@ -40,7 +44,10 @@ export class SpaceSaving {
     }
     if (this.map.size < this.capacity) {
       this.map.set(key, {
-        key, score: w, count: 1, err: 0,
+        key,
+        score: w,
+        count: 1,
+        err: 0,
       });
       return;
     }
@@ -54,11 +61,16 @@ export class SpaceSaving {
         minKey = k;
       }
     });
-    if (minKey == null) return;
+    if (minKey == null) {
+      return;
+    }
     const victim = this.map.get(minKey);
     this.map.delete(minKey);
     this.map.set(key, {
-      key, score: victim.score + w, count: 1, err: victim.score,
+      key,
+      score: victim.score + w,
+      count: 1,
+      err: victim.score,
     });
   }
 
@@ -70,7 +82,10 @@ export class SpaceSaving {
     const arr = Array.from(this.map.values());
     arr.sort((a, b) => b.score - a.score);
     return arr.slice(0, k).map((e) => ({
-      key: e.key, score: e.score, count: e.count, err: e.err,
+      key: e.key,
+      score: e.score,
+      count: e.count,
+      err: e.err,
     }));
   }
 }
