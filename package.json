@@ -1,6 +1,6 @@
 {
   "name": "@adobe/rum-distiller",
-  "version": "1.23.0",
+  "version": "1.24.0-prerelease.1",
   "scripts": {
     "test": "node --test test/*.js --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=lcov.info --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=junit.xml",
     "test-ci": "npm run test",

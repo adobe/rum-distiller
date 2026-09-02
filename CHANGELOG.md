@@ -1,3 +1,22 @@
+# [1.24.0-prerelease.1](https://github.com/adobe/rum-distiller/compare/v1.23.0...v1.24.0-prerelease.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **demo+wrapper:** terminate workers on close; auto-close after done; close previous run on restart to avoid orphaned workers ([e02b893](https://github.com/adobe/rum-distiller/commit/e02b8938869f524f37607ac28f760e8ef6937be1))
+* **orchestrator:** track per-subworker reqId from stream:init and pass it to stream:add/phase/end to avoid 'no streaming run' errors; resolves demo parallel errors ([5e072e2](https://github.com/adobe/rum-distiller/commit/5e072e2d558ab9fa1c75e3c82a09dd82f63b5540))
+* **streaming+demo:** avoid finalizing a non-existent run; demo cancels pending timers on Done to prevent late finalize from spawning a new run ([3cb10dd](https://github.com/adobe/rum-distiller/commit/3cb10dd8dec39c1ca74dbf811fbbd95b4dbf745e))
+* **streaming:** guard ensureInit with a single in-flight initPromise to prevent duplicate stream:init and runaway worker spawning; eliminates phantom second run with 0 ingestion ([1c8ed88](https://github.com/adobe/rum-distiller/commit/1c8ed889e168418fe69726674d6018cfd0ffb96a))
+* **worker:** serialize streaming snapshots and quantiles ([f53badb](https://github.com/adobe/rum-distiller/commit/f53badb14394ba0894a9f0c2d1beb8d8f669da4e))
+
+
+### Features
+
+* **constants:** export PHASE_EPSILON, DEFAULT_BINS, AUTO_ADVANCE_INTERVAL_MS from engine.js and replace inline epsilon usage ([e5178a5](https://github.com/adobe/rum-distiller/commit/e5178a54b4d7a40efbf463428e9172b834c4b3a7))
+* **session:** AbortSignal support, optional Worker instance, better error handling; keep API compatible ([e14a6c7](https://github.com/adobe/rum-distiller/commit/e14a6c71e057f839994c8f4b1964a807810f0b1f))
+* **streaming:** add mergeable quantile histograms; group commands in worker to merge shards in-worker; wrapper supports shards with in-worker merging and prefers mergeable quantiles ([3a6eef0](https://github.com/adobe/rum-distiller/commit/3a6eef055ceba998142c8b70aa2d296883af1f9c))
+* **worker:** progressive + streaming ingestion; wrapper API (StreamingDataChunks); demo; docs; exports ([1732325](https://github.com/adobe/rum-distiller/commit/17323258ccd2c975dbc71656115507f4e2a5398f))
+
 # [1.23.0](https://github.com/adobe/rum-distiller/compare/v1.22.2...v1.23.0) (2026-01-27)
 
 
