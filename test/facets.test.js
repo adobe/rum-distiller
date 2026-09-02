@@ -50,6 +50,11 @@ describe('facets:url', () => {
   it('url:bare', () => {
     assert.equal(facets.url({ url: 'https://www.example.com/path/to/page' }), 'https://www.example.com/path/to/page');
     assert.equal(facets.url({ url: 'https://www.example.com/user/12345' }), `https://www.example.com/user/${encodeURIComponent('<number>')}`);
+    assert.equal(facets.url({ url: 'https://www.example.com/user/2020013579' }), `https://www.example.com/user/${encodeURIComponent('<number>')}`);
+    // note the below test will start failing in 2027 due to the five year lookback
+    // simply update the year at that time
+    assert.equal(facets.url({ url: 'https://www.example.com/user/2021013579' }), `https://www.example.com/user/2021013579`);
+    assert.equal(facets.url({ url: 'https://www.example.com/user/2026013579' }), `https://www.example.com/user/2026013579`);
     assert.equal(facets.url({ url: 'https://www.example.com/hash/a1b2c3d4e5f6' }), `https://www.example.com/hash/${encodeURIComponent('<hex>')}`);
     assert.equal(facets.url({ url: 'https://www.example.com/path/to/page?query=string#fragment' }), 'https://www.example.com/path/to/page?query=string#fragment');
     // base64 encoded data in path
