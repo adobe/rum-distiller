@@ -20,7 +20,9 @@
 
 export class P2Quantile {
   constructor(p) {
-    if (!(p > 0 && p < 1)) throw new Error('p must be in (0,1)');
+    if (!(p > 0 && p < 1)) {
+      throw new Error('p must be in (0,1)');
+    }
     this.p = p;
     this.n = 0;
     this.initial = [];
@@ -33,7 +35,9 @@ export class P2Quantile {
   }
 
   push(x) {
-    if (!Number.isFinite(x)) return;
+    if (!Number.isFinite(x)) {
+      return;
+    }
     this.n += 1;
     if (this.n <= 5) {
       this.initial.push(x);
@@ -68,9 +72,13 @@ export class P2Quantile {
     }
 
     // Increment positions of markers k+1..4
-    for (let i = k + 1; i < 5; i += 1) this.n_[i] += 1;
+    for (let i = k + 1; i < 5; i += 1) {
+      this.n_[i] += 1;
+    }
     // Update desired positions
-    for (let i = 0; i < 5; i += 1) this.np[i] += this.dn[i];
+    for (let i = 0; i < 5; i += 1) {
+      this.np[i] += this.dn[i];
+    }
 
     // Adjust marker heights 1..3
     for (let i = 1; i <= 3; i += 1) {
@@ -91,7 +99,9 @@ export class P2Quantile {
   }
 
   value() {
-    if (this.n === 0) return undefined;
+    if (this.n === 0) {
+      return undefined;
+    }
     if (this.n < 5) {
       const arr = [...this.initial].sort((a, b) => a - b);
       const idx = Math.floor(this.p * (arr.length - 1));

@@ -90,7 +90,9 @@ export class StreamingRun {
     });
   }
 
-  coverage() { return Math.min(1, this.received / this.expected); }
+  coverage() {
+    return Math.min(1, this.received / this.expected);
+  }
 
   ingest(chunks, requestsDelta = 1) {
     return this._enqueue(() => this._ingest(chunks, requestsDelta));
@@ -110,9 +112,13 @@ export class StreamingRun {
     );
     facetNames.forEach((n) => {
       const fn = this.facets[n];
-      if (typeof fn === 'function') dc.addFacet(n, fn);
+      if (typeof fn === 'function') {
+        dc.addFacet(n, fn);
+      }
     });
-    if (this.filter && Object.keys(this.filter).length) dc.filter = this.filter;
+    if (this.filter && Object.keys(this.filter).length) {
+      dc.filter = this.filter;
+    }
     const { filtered } = dc; // prefer-destructuring
 
     // For each filtered bundle: compute membership and either process (<= phase) or queue in bins
@@ -144,7 +150,9 @@ export class StreamingRun {
 
   async _advanceTo(newPhase) {
     const target = Math.max(this.phase, Math.min(1, Number(newPhase) || 0));
-    if (target <= this.phase) return this.snapshot();
+    if (target <= this.phase) {
+      return this.snapshot();
+    }
     const endBin = Math.min(this.BINS - 1, Math.floor(target * this.BINS));
     const startBin = Math.min(this.BINS - 1, Math.floor(this.phase * this.BINS));
     for (let bin = startBin; bin <= endBin; bin += 1) {
@@ -174,12 +182,19 @@ export class StreamingRun {
     for (let k = 0; k < (this.cfg.series || []).length; k += 1) {
       const name = this.cfg.series[k];
       const v = this.seriesFns[name](b);
-      if (v === undefined || v === null) continue; // eslint-disable-line no-continue
+      if (v === undefined || v === null) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       const s = this.seriesAgg[name];
       s.count += 1;
       s.sum += v;
-      if (v < s.min) s.min = v;
-      if (v > s.max) s.max = v;
+      if (v < s.min) {
+        s.min = v;
+      }
+      if (v > s.max) {
+        s.max = v;
+      }
       s.p2.push(v);
       s.values.push(v);
       this.mergeable.push(name, v, b.weight || 1);
@@ -188,17 +203,23 @@ export class StreamingRun {
     for (let f = 0; f < (this.cfg.facets || []).length; f += 1) {
       const fname = this.cfg.facets[f];
       const fn = this.facets[fname];
-      if (!fn) continue; // eslint-disable-line no-continue
+      if (!fn) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       const vals = fn(b);
       let arr = [];
-      if (Array.isArray(vals)) arr = vals;
-      else if (vals) arr = [vals];
+      if (Array.isArray(vals)) {
+        arr = vals;
+      } else if (vals) {
+        arr = [vals];
+      }
       for (let j = 0; j < arr.length; j += 1) {
         const v = arr[j];
         const m = this.facetCounts[fname];
         const cur = m.get(v) || { count: 0, weight: 0 };
         cur.count += 1;
-        cur.weight += (b.weight || 1);
+        cur.weight += b.weight || 1;
         m.set(v, cur);
       }
     }
@@ -249,12 +270,15 @@ export class StreamingRun {
     const facets = {};
     (this.cfg.facets || []).forEach((fname) => {
       const m = this.facetCounts[fname];
-      const arr = Array.from(m.entries())
-        .map(([value, data]) => ({ value, count: data.count, weight: data.weight }));
+      const arr = Array.from(m.entries()).map(([value, data]) => ({
+        value,
+        count: data.count,
+        weight: data.weight,
+      }));
       arr.sort((a, b) => b.weight - a.weight);
-      const k = (typeof this.cfg.topK === 'object' && this.cfg.topK)
-        ? (this.cfg.topK[fname] || this.cfg.defaultTopK || 50)
-        : (this.cfg.topK || this.cfg.defaultTopK || 50);
+      const k = typeof this.cfg.topK === 'object' && this.cfg.topK
+        ? this.cfg.topK[fname] || this.cfg.defaultTopK || 50
+        : this.cfg.topK || this.cfg.defaultTopK || 50;
       const out = arr.slice(0, k).map((e) => ({ ...e }));
       const f = Math.max(PHASE_EPSILON, (this.phase || 0) * this.coverage() || 0);
       if (this.phase < 1 - PHASE_EPSILON || this.coverage() < 1 - PHASE_EPSILON) {
@@ -338,9 +362,7 @@ export function createStreamingDataChunks(workerInput) {
   // Minimal session client (inlined; replaced previous worker/session.js)
   function createSession(wi) {
     const workerUrl = wi || new URL('./analysis.worker.js', import.meta.url);
-    const w = (typeof workerUrl === 'object'
-      && workerUrl
-      && typeof workerUrl.postMessage === 'function')
+    const w = typeof workerUrl === 'object' && workerUrl && typeof workerUrl.postMessage === 'function'
       ? workerUrl
       : new Worker(workerUrl, { type: 'module', name: 'rum-distiller-analysis' });
     let seq = 0;
@@ -352,18 +374,22 @@ export function createStreamingDataChunks(workerInput) {
     };
     w.onmessage = (ev) => {
       const {
-        id,
-        ok,
-        result,
-        partial,
+        id, ok, result, partial,
       } = ev.data || {};
       const entry = inflight.get(id);
-      if (!entry) return;
-      if (partial && entry.onPartial) entry.onPartial(result);
+      if (!entry) {
+        return;
+      }
+      if (partial && entry.onPartial) {
+        entry.onPartial(result);
+      }
       if (!partial) {
         inflight.delete(id);
-        if (ok) entry.resolve(result);
-        else entry.reject(result);
+        if (ok) {
+          entry.resolve(result);
+        } else {
+          entry.reject(result);
+        }
       }
     };
     w.onerror = (e) => {
@@ -374,10 +400,7 @@ export function createStreamingDataChunks(workerInput) {
     };
     function request(cmd, payload, options = {}) {
       const {
-        onPartial,
-        signal,
-        timeout,
-        transfer,
+        onPartial, signal, timeout, transfer,
       } = options;
       seq += 1;
       const id = seq;
@@ -393,7 +416,9 @@ export function createStreamingDataChunks(workerInput) {
             try {
               // eslint-disable-next-line no-plusplus
               w.postMessage({ id: ++seq, cmd: 'cancel', payload: { targetId: id } });
-            } catch (_) { /* ignore */ }
+            } catch (_) {
+              /* ignore */
+            }
           }, timeout);
         }
         if (signal) {
@@ -408,31 +433,48 @@ export function createStreamingDataChunks(workerInput) {
             try {
               // eslint-disable-next-line no-plusplus
               w.postMessage({ id: ++seq, cmd: 'cancel', payload: { targetId: id } });
-            } catch (_) { /* ignore */ }
+            } catch (_) {
+              /* ignore */
+            }
           };
           signal.addEventListener('abort', onAbort, { once: true });
         }
       });
       try {
         const hasTransfer = transfer && Array.isArray(transfer) && transfer.length;
-        if (hasTransfer) w.postMessage({ id, cmd, payload }, transfer);
-        else w.postMessage({ id, cmd, payload });
+        if (hasTransfer) {
+          w.postMessage({ id, cmd, payload }, transfer);
+        } else {
+          w.postMessage({ id, cmd, payload });
+        }
       } catch (e) {
         inflight.delete(id);
-        if (signal && onAbort) signal.removeEventListener('abort', onAbort);
-        if (to) clearTimeout(to);
+        if (signal && onAbort) {
+          signal.removeEventListener('abort', onAbort);
+        }
+        if (to) {
+          clearTimeout(to);
+        }
         throw e;
       }
       const cancel = () => {
-        if (signal && onAbort) signal.removeEventListener('abort', onAbort);
-        if (to) clearTimeout(to);
+        if (signal && onAbort) {
+          signal.removeEventListener('abort', onAbort);
+        }
+        if (to) {
+          clearTimeout(to);
+        }
         // eslint-disable-next-line no-plusplus
         seq += 1;
         w.postMessage({ id: seq, cmd: 'cancel', payload: { targetId: id } });
       };
       const cleanup = () => {
-        if (signal && onAbort) signal.removeEventListener('abort', onAbort);
-        if (to) clearTimeout(to);
+        if (signal && onAbort) {
+          signal.removeEventListener('abort', onAbort);
+        }
+        if (to) {
+          clearTimeout(to);
+        }
       };
       promise.then(cleanup, cleanup);
       return { id, promise, cancel };
@@ -445,14 +487,8 @@ export function createStreamingDataChunks(workerInput) {
       streamPhase: (opts) => request('stream:phase', opts),
       streamEnd: (opts) => request('stream:end', opts),
       streamFinalize: (opts) => request('stream:finalize', opts),
-      registerFacetModule: ({ name, url }) => request(
-        'facet:import',
-        { name, url },
-      ).promise,
-      registerSeriesModule: ({ name, url }) => request(
-        'series:import',
-        { name, url },
-      ).promise,
+      registerFacetModule: ({ name, url }) => request('facet:import', { name, url }).promise,
+      registerSeriesModule: ({ name, url }) => request('series:import', { name, url }).promise,
       terminate: () => {
         try {
           w.terminate();
@@ -512,11 +548,7 @@ export function createStreamingDataChunks(workerInput) {
   function emitSnapshot(snap) {
     const enriched = enrich(snap);
     snapHandler?.(enriched);
-    if (
-      !doneEmitted
-      && enriched.progress >= 1 - PHASE_EPSILON
-      && doneHandler
-    ) {
+    if (!doneEmitted && enriched.progress >= 1 - PHASE_EPSILON && doneHandler) {
       doneEmitted = true;
       doneHandler(enriched);
     }
@@ -526,7 +558,9 @@ export function createStreamingDataChunks(workerInput) {
   let initPromise = null;
 
   async function ensureInit() {
-    if (reqId != null) return;
+    if (reqId != null) {
+      return;
+    }
     if (initPromise) {
       await initPromise;
       return;
@@ -535,8 +569,11 @@ export function createStreamingDataChunks(workerInput) {
       let target = workerInput;
       const isObj = target && typeof target === 'object' && typeof target.postMessage === 'function';
       if (!isObj) {
-        if (cfg.shards && cfg.shards > 1) target = new URL('./orchestrator.worker.js', import.meta.url);
-        else target = target || new URL('./analysis.worker.js', import.meta.url);
+        if (cfg.shards && cfg.shards > 1) {
+          target = new URL('./orchestrator.worker.js', import.meta.url);
+        } else {
+          target = target || new URL('./analysis.worker.js', import.meta.url);
+        }
       }
       session = createSession(target);
     }
@@ -575,44 +612,49 @@ export function createStreamingDataChunks(workerInput) {
       initPromise = null;
     }
     const th = cfg.thresholds;
-    ticker = setInterval(async () => {
-      const cov = lastSnap?.ingestion?.coverage || 0;
-      const current = lastSnap?.phase || 0;
-      const minDesired = 0.5 * cov;
-      const nextT = th.find((t) => t > current) ?? 1;
-      const nudgeStep = 0.02;
-      const desired = Math.max(current + nudgeStep, minDesired);
-      let target = 0;
-      if (cov < 1) {
-        target = Math.min(nextT, desired);
-      } else if (current + PHASE_EPSILON < nextT) {
-        target = nextT;
-      } else {
-        target = Math.min(1, desired);
-      }
-      if (target > current + 1e-6 && !phaseInFlight) {
-        phaseInFlight = true;
-        try {
-          const req = session.streamPhase({ reqId, phase: Number(target.toFixed(6)) });
-          const p = await req.promise;
-          lastSnap = p;
-          emitSnapshot(p);
-        } catch (_) { /* ignore */ } finally {
-          phaseInFlight = false;
+    ticker = setInterval(
+      async () => {
+        const cov = lastSnap?.ingestion?.coverage || 0;
+        const current = lastSnap?.phase || 0;
+        const minDesired = 0.5 * cov;
+        const nextT = th.find((t) => t > current) ?? 1;
+        const nudgeStep = 0.02;
+        const desired = Math.max(current + nudgeStep, minDesired);
+        let target = 0;
+        if (cov < 1) {
+          target = Math.min(nextT, desired);
+        } else if (current + PHASE_EPSILON < nextT) {
+          target = nextT;
+        } else {
+          target = Math.min(1, desired);
         }
-      }
-      if (cov >= 1 && (lastSnap?.phase || 0) >= 1 - PHASE_EPSILON) {
-        clearInterval(ticker);
-        ticker = null;
-      }
-    }, Number(cfg.autoAdvanceIntervalMs) || AUTO_ADVANCE_INTERVAL_MS);
+        if (target > current + 1e-6 && !phaseInFlight) {
+          phaseInFlight = true;
+          try {
+            const req = session.streamPhase({ reqId, phase: Number(target.toFixed(6)) });
+            const p = await req.promise;
+            lastSnap = p;
+            emitSnapshot(p);
+          } catch (_) {
+            /* ignore */
+          } finally {
+            phaseInFlight = false;
+          }
+        }
+        if (cov >= 1 && (lastSnap?.phase || 0) >= 1 - PHASE_EPSILON) {
+          clearInterval(ticker);
+          ticker = null;
+        }
+      },
+      Number(cfg.autoAdvanceIntervalMs) || AUTO_ADVANCE_INTERVAL_MS,
+    );
   }
 
   const api = {
     addSeries() {
       throw new Error(
         'addSeries is not supported in StreamingDataChunks. '
-        + 'Use addDistillerSeries(name) or addModuleSeries(name, url).',
+          + 'Use addDistillerSeries(name) or addModuleSeries(name, url).',
       );
     },
     addDistillerSeries(name) {
@@ -630,7 +672,7 @@ export function createStreamingDataChunks(workerInput) {
     addFacet() {
       throw new Error(
         'addFacet is not supported in StreamingDataChunks. '
-        + 'Use addDistillerFacet(name) or addModuleFacet(name, url).',
+          + 'Use addDistillerFacet(name) or addModuleFacet(name, url).',
       );
     },
     addDistillerFacet(name) {
@@ -655,10 +697,10 @@ export function createStreamingDataChunks(workerInput) {
         cfg.thresholds = arr;
         return this;
       }
-      const arr = args
-        .map(Number)
-        .filter((x) => Number.isFinite(x) && x > 0 && x <= 1);
-      if (arr[arr.length - 1] !== 1) arr.push(1);
+      const arr = args.map(Number).filter((x) => Number.isFinite(x) && x > 0 && x <= 1);
+      if (arr[arr.length - 1] !== 1) {
+        arr.push(1);
+      }
       cfg.thresholds = arr;
       return this;
     },
@@ -669,7 +711,9 @@ export function createStreamingDataChunks(workerInput) {
     set autoAdvanceIntervalMs(v) {
       cfg.autoAdvanceIntervalMs = Number(v) || AUTO_ADVANCE_INTERVAL_MS;
     },
-    get autoAdvanceIntervalMs() { return cfg.autoAdvanceIntervalMs; },
+    get autoAdvanceIntervalMs() {
+      return cfg.autoAdvanceIntervalMs;
+    },
     set defaultTopK(v) {
       cfg.defaultTopK = Number(v) || 50;
     },
@@ -677,10 +721,18 @@ export function createStreamingDataChunks(workerInput) {
       return cfg.defaultTopK;
     },
     topK: cfg.topK,
-    set shards(v) { cfg.shards = Math.max(1, Number(v) || 1); },
-    get shards() { return cfg.shards || 1; },
-    set maxSlices(v) { cfg.maxSlices = Number.isFinite(v) ? Number(v) : Infinity; },
-    get maxSlices() { return cfg.maxSlices; },
+    set shards(v) {
+      cfg.shards = Math.max(1, Number(v) || 1);
+    },
+    get shards() {
+      return cfg.shards || 1;
+    },
+    set maxSlices(v) {
+      cfg.maxSlices = Number.isFinite(v) ? Number(v) : Infinity;
+    },
+    get maxSlices() {
+      return cfg.maxSlices;
+    },
     set expectChunks(v) {
       expectChunks = Math.max(0, Number(v) || 0);
     },
@@ -709,19 +761,25 @@ export function createStreamingDataChunks(workerInput) {
       const r = this.restartWithCurrentFilter();
       r?.catch?.((e) => errorHandler?.(e));
     },
-    get filter() { return cfg.filter; },
-    get progress() { return computeProgress(lastSnap); },
+    get filter() {
+      return cfg.filter;
+    },
+    get progress() {
+      return computeProgress(lastSnap);
+    },
     async load(chunks) {
       const hasData = chunks && (Array.isArray(chunks) ? chunks.length : true);
       // If this is a finalize call (no chunks) and no run is active, do nothing
       if (!hasData && reqId == null) {
-        return lastSnap || {
-          phase: 0,
-          totals: {},
-          facets: {},
-          approxQuantiles: {},
-          ingestion: { received: 0, expected: 0, coverage: 0 },
-        };
+        return (
+          lastSnap || {
+            phase: 0,
+            totals: {},
+            facets: {},
+            approxQuantiles: {},
+            ingestion: { received: 0, expected: 0, coverage: 0 },
+          }
+        );
       }
       await ensureInit();
       if (hasData) {
@@ -760,7 +818,9 @@ export function createStreamingDataChunks(workerInput) {
       if (reqId != null) {
         try {
           await session.streamEnd({ reqId }).promise;
-        } catch (_) { /* ignore */ }
+        } catch (_) {
+          /* ignore */
+        }
       }
       const savedExpect = expectChunks || loadedSlices.length;
       reqId = null;
@@ -769,7 +829,9 @@ export function createStreamingDataChunks(workerInput) {
       try {
         await ensureInit();
         for (let i = 0; i < loadedSlices.length; i += 1) {
-          if (mySeq !== restartSeq) return; // another restart superseded this one
+          if (mySeq !== restartSeq) {
+            return;
+          } // another restart superseded this one
           const add = session.streamAdd({
             reqId,
             chunks: [loadedSlices[i]],
@@ -786,7 +848,9 @@ export function createStreamingDataChunks(workerInput) {
         errorHandler?.(e);
         throw e;
       } finally {
-        if (mySeq === restartSeq) restarting = false;
+        if (mySeq === restartSeq) {
+          restarting = false;
+        }
       }
     },
     async close() {
@@ -797,13 +861,17 @@ export function createStreamingDataChunks(workerInput) {
       if (reqId != null) {
         try {
           await session.streamEnd({ reqId }).promise;
-        } catch (_) { /* ignore */ }
+        } catch (_) {
+          /* ignore */
+        }
       }
       reqId = null;
       // Proactively terminate the worker to free threads/processes
       try {
         session?.terminate?.();
-      } catch (_) { /* ignore */ }
+      } catch (_) {
+        /* ignore */
+      }
       session = null;
     },
   };

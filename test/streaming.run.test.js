@@ -29,13 +29,18 @@ function makeChunk(size = 1000) {
 }
 
 function makeRun() {
-  return new StreamingRun(1, {
-    bins: 16,
-    series: ['pageViews'],
-    facets: [],
-    quantiles: [0.5],
-    topK: 10,
-  }, {}, { yieldEvery: 256 });
+  return new StreamingRun(
+    1,
+    {
+      bins: 16,
+      series: ['pageViews'],
+      facets: [],
+      quantiles: [0.5],
+      topK: 10,
+    },
+    {},
+    { yieldEvery: 256 },
+  );
 }
 
 describe('StreamingRun operation ordering', () => {
@@ -47,19 +52,10 @@ describe('StreamingRun operation ordering', () => {
 
     const concurrent = makeRun();
     await concurrent.ingest([chunk]);
-    await Promise.all([
-      concurrent.advanceTo(0.5),
-      concurrent.advanceTo(0.5),
-    ]);
+    await Promise.all([concurrent.advanceTo(0.5), concurrent.advanceTo(0.5)]);
 
     const actual = concurrent.snapshot();
-    assert.equal(
-      actual.counts.bundlesIncluded,
-      expected.counts.bundlesIncluded,
-    );
-    assert.equal(
-      actual.sampleTotals.pageViews.count,
-      expected.sampleTotals.pageViews.count,
-    );
+    assert.equal(actual.counts.bundlesIncluded, expected.counts.bundlesIncluded);
+    assert.equal(actual.sampleTotals.pageViews.count, expected.sampleTotals.pageViews.count);
   });
 });

@@ -40,7 +40,7 @@ function mkChunks() {
     const rumBundles = [];
     for (let i = 0; i < 120; i += 1) {
       const ui = (i + c * 7) % urls.length;
-      const w = 1 + ((i % 5) * 2);
+      const w = 1 + (i % 5) * 2;
       const lcp = 600 + ((i * 37) % 1800);
       id += 1;
       rumBundles.push(mkBundle(id, urls[ui], w, lcp));
@@ -53,7 +53,9 @@ function mkChunks() {
 describe('streaming wrapper', () => {
   it('streams 12/25/50/100 with approx->exact quantiles and topK facets', async () => {
     const { createStreamingDataChunks } = await import('../../worker/streaming.js');
-    const dc = createStreamingDataChunks(new URL('../../worker/analysis.worker.js', import.meta.url));
+    const dc = createStreamingDataChunks(
+      new URL('../../worker/analysis.worker.js', import.meta.url),
+    );
     dc.addDistillerSeries('pageViews');
     dc.addDistillerSeries('lcp');
     dc.addDistillerFacet('plainURL');

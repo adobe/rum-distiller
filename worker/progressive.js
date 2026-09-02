@@ -41,9 +41,13 @@ export class ProgressiveRun {
     );
     facetNames.forEach((n) => {
       const fn = this.facets[n];
-      if (typeof fn === 'function') dc.addFacet(n, fn);
+      if (typeof fn === 'function') {
+        dc.addFacet(n, fn);
+      }
     });
-    if (this.filter && Object.keys(this.filter).length) dc.filter = this.filter;
+    if (this.filter && Object.keys(this.filter).length) {
+      dc.filter = this.filter;
+    }
     this.filtered = dc.filtered;
 
     // Precompute membership and sort by it
@@ -82,7 +86,9 @@ export class ProgressiveRun {
     const n = this.items.length;
     // Find boundary index (first index with h >= phase)
     let hi = this.cursor;
-    while (hi < n && this.items[hi].h < target) hi += 1;
+    while (hi < n && this.items[hi].h < target) {
+      hi += 1;
+    }
     // Process delta [cursor, hi)
     for (let i = this.cursor; i < hi; i += 1) {
       if (this.yieldEvery && i % this.yieldEvery === 0) {
@@ -95,12 +101,19 @@ export class ProgressiveRun {
       for (let k = 0; k < (this.cfg.series || []).length; k += 1) {
         const name = this.cfg.series[k];
         const v = this.seriesFns[name](b);
-        if (v === undefined || v === null) continue; // eslint-disable-line no-continue
+        if (v === undefined || v === null) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
         const s = this.seriesAgg[name];
         s.count += 1;
         s.sum += v;
-        if (v < s.min) s.min = v;
-        if (v > s.max) s.max = v;
+        if (v < s.min) {
+          s.min = v;
+        }
+        if (v > s.max) {
+          s.max = v;
+        }
         s.p2.push(v);
         s.values.push(v);
       }
@@ -108,16 +121,19 @@ export class ProgressiveRun {
       for (let f = 0; f < (this.cfg.facets || []).length; f += 1) {
         const fname = this.cfg.facets[f];
         const fn = this.facets[fname];
-        if (!fn) continue; // eslint-disable-line no-continue
+        if (!fn) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
         const vals = fn(b);
         // eslint-disable-next-line no-nested-ternary
-        const arr = Array.isArray(vals) ? vals : (vals ? [vals] : []);
+        const arr = Array.isArray(vals) ? vals : vals ? [vals] : [];
         for (let j = 0; j < arr.length; j += 1) {
           const v = arr[j];
           const m = this.facetCounts[fname];
           const cur = m.get(v) || { count: 0, weight: 0 };
           cur.count += 1;
-          cur.weight += (b.weight || 1);
+          cur.weight += b.weight || 1;
           m.set(v, cur);
         }
       }
@@ -149,12 +165,15 @@ export class ProgressiveRun {
     const facets = {};
     (this.cfg.facets || []).forEach((fname) => {
       const m = this.facetCounts[fname];
-      const arr = Array.from(m.entries())
-        .map(([value, data]) => ({ value, count: data.count, weight: data.weight }));
+      const arr = Array.from(m.entries()).map(([value, data]) => ({
+        value,
+        count: data.count,
+        weight: data.weight,
+      }));
       arr.sort((a, b) => b.weight - a.weight);
-      const k = (typeof this.cfg.topK === 'object' && this.cfg.topK)
-        ? (this.cfg.topK[fname] || this.cfg.defaultTopK || 50)
-        : (this.cfg.topK || this.cfg.defaultTopK || 50);
+      const k = typeof this.cfg.topK === 'object' && this.cfg.topK
+        ? this.cfg.topK[fname] || this.cfg.defaultTopK || 50
+        : this.cfg.topK || this.cfg.defaultTopK || 50;
       let out = arr.slice(0, k).map((e) => ({ ...e }));
       if (phase < 1 - PHASE_EPSILON) {
         const d = phase || PHASE_EPSILON;
