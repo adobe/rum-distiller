@@ -24,10 +24,19 @@ jobs:
       - uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Create release bot token
+        id: release-bot-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.HELIX_RELEASE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.HELIX_RELEASE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
       - name: Semantic Release (Dry Run)
         run: npm run semantic-release-dry
         env:
-          GITHUB_TOKEN: ${{ secrets.ADOBE_BOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.release-bot-token.outputs.token }}
           NPM_TOKEN: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
@@ -38,9 +47,7 @@ jobs:
     needs: test
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/1.x' || github.ref == 'refs/heads/prerelease'
     permissions:
-      contents: write
-      issues: write
-      pull-requests: write
+      contents: read
       id-token: write # needed for npm trusted publishers with OIDC
     steps:
       - uses: actions/checkout@v6
@@ -51,9 +58,18 @@ jobs:
         with:
           node-version: '24.x'
       - run: npm ci
+      - name: Create release bot token
+        id: release-bot-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.HELIX_RELEASE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.HELIX_RELEASE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
       - run: npm run semantic-release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.release-bot-token.outputs.token }}
           NPM_TOKEN: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
