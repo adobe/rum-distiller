@@ -11,18 +11,30 @@
  */
 /*
  * Short aliases like `ig`, `fb`, `yt` and generic words like `meta` or `line` are
- * used as UTM values, but as plain substrings they also match unrelated hosts
- * (`figma.com`, `nytimes.com`, `metadata.io`, `headline.com`). They are therefore
- * only matched as a standalone label, i.e. delimited by something that cannot be
- * part of a domain label or a package id.
+ * used as UTM values, but as plain substrings they also match unrelated referrers
+ * (`figma.com`, `nytimes.com`, `metadata.io`, `headline.com`), so they are only
+ * matched as a standalone token. Which delimiters end that token depends on the
+ * shape of the origin: `-` separates the parts of a UTM value (`social-ig`), but is
+ * a regular character inside a hostname label (`my-ig-site.com` is not Instagram),
+ * so a hostname is matched on whole labels only.
  */
+function standaloneAlias(pattern) {
+  return {
+    utm: new RegExp(`(?<![a-z0-9])(?:${pattern})(?![a-z0-9])`, 'i'),
+    hostname: new RegExp(`(?<![a-z0-9-])(?:${pattern})(?![a-z0-9-])`, 'i'),
+  };
+}
+
+/* a hostname or URL, as opposed to a UTM value like `paid-social` */
+const hostnameLikeRegex = /^(?:[a-z][a-z0-9+.-]*:\/\/)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:[:/?#]|$)/i;
+
 const vendorClassifications = [
   { regex: /google|googleads|google-ads|google_search|google_deman|adwords|dv360|gdn|doubleclick|dbm|gmb/i, result: 'google' },
-  { regex: /instagram|(?<![a-z0-9])ig(?![a-z0-9])/i, result: 'instagram' },
-  { regex: /facebook|(?<![a-z0-9])(fb|meta)(?![a-z0-9])/i, result: 'facebook' },
+  { regex: /instagram/i, alias: standaloneAlias('ig'), result: 'instagram' },
+  { regex: /facebook/i, alias: standaloneAlias('fb|meta'), result: 'facebook' },
   { regex: /bing/i, result: 'bing' },
   { regex: /tiktok/i, result: 'tiktok' },
-  { regex: /youtube|(?<![a-z0-9])yt(?![a-z0-9])/i, result: 'youtube' },
+  { regex: /youtube/i, alias: standaloneAlias('yt'), result: 'youtube' },
   { regex: /linkedin/i, result: 'linkedin' },
   { regex: /twitter/i, result: 'x' },
   { regex: /snapchat/i, result: 'snapchat' },
@@ -37,7 +49,7 @@ const vendorClassifications = [
   { regex: /marketo/i, result: 'marketo' },
   { regex: /eloqua/i, result: 'eloqua' },
   { regex: /substack/i, result: 'substack' },
-  { regex: /(?<![a-z0-9])line(?![a-z0-9])/i, result: 'line' },
+  { alias: standaloneAlias('line'), result: 'line' },
   { regex: /yext/i, result: 'yext' },
   { regex: /teads/i, result: 'teads' },
   { regex: /yandex/i, result: 'yandex' },
@@ -134,10 +146,13 @@ const categoryTypeLookup = {
  * classified like any other referrer, a package id is looked up below.
  */
 const inAppReferrerRegex = /^android-app:\/\/([^/]+)/i;
-/* a hostname ends in a TLD, the last label of a package id is the app name */
-const hostnameSuffixRegex = /\.(com|net|org|edu|gov|info|biz|xyz|jp|de|uk|fr|it|es|nl|se|no|dk|fi|pl|cz|ru|cn|kr|br|mx|ca|au|nz|za|tr|il|ch|at|be|pt|ie|gr|hu|ro|ua|sg|hk|tw|th|vn|ph|id)$/i;
-/* a package id starts with a TLD, a hostname does not */
-const packagePrefixRegex = /^(com|net|org|io|co|jp|de|uk|fr|kr|cn|tv|app|dev|me|ai)\./i;
+/* a hostname ends in a TLD: two letters for a country, or a known suffix */
+const tldRegex = /\.(?:[a-z]{2}|com|net|org|edu|gov|mil|int|info|biz|pro|xyz|app|dev|site|online|shop|store|blog|cloud|tech|news|live|link|page|space|website|media|group|world|life|today|agency|digital)$/i;
+/*
+ * A package id is reverse DNS, so a label that would be the TLD of a hostname comes
+ * first instead of last: `com.example.app` is a package id, `app.example.com` is not.
+ */
+const packageRootRegex = /^(?:com|org|net|io)\./i;
 
 /*
  * The apps that account for the bulk of in-app referrals, mapped to a source that
@@ -161,18 +176,26 @@ const androidAppSources = {
   'jp.naver.line.android': 'line',
 };
 
+function isPackageId(authority) {
+  return packageRootRegex.test(authority) || !tldRegex.test(authority);
+}
+
 function inAppSource(origin) {
   if (typeof origin !== 'string') return origin;
   const [, authority] = inAppReferrerRegex.exec(origin) || [];
   const key = (authority || origin).toLowerCase();
-  if (authority && hostnameSuffixRegex.test(key) && !packagePrefixRegex.test(key)) return key;
+  if (authority && !isPackageId(key)) return key;
   if (androidAppSources[key]) return androidAppSources[key];
   /* an unknown app is reported as an in-app referral we cannot attribute */
   return authority ? '' : origin;
 }
 
 export function vendor(origin) {
-  const result = vendorClassifications.find(({ regex }) => regex.test(origin));
+  const hostnameLike = hostnameLikeRegex.test(origin);
+  const result = vendorClassifications.find(({ regex, alias }) => {
+    if (regex && regex.test(origin)) return true;
+    return !!alias && (hostnameLike ? alias.hostname : alias.utm).test(origin);
+  });
   return result ? result.result : '';
 }
 

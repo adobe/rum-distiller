@@ -135,6 +135,8 @@ describe('classifyAcquisition (Android in-app referrers)', () => {
     // the authority is not always a package id, some apps report a hostname
     { input: 'android-app://m.facebook.com/', expected: ':social:facebook' },
     { input: 'android-app://nextdoor.com/', expected: '' },
+    { input: 'android-app://id.pinterest.com/', expected: ':social:pinterest' },
+    { input: 'android-app://perplexity.ai/', expected: 'earned:ai:perplexity' },
     // known social and video apps keep their vendor and category
     { input: 'android-app://jp.naver.line.android/', expected: ':social:line' },
     { input: 'android-app://com.linkedin.android/', expected: ':social:linkedin' },
@@ -146,6 +148,7 @@ describe('classifyAcquisition (Android in-app referrers)', () => {
     { input: 'android-app://com.google.android.youtube/', expected: ':video:youtube' },
     // an app we don't know is left unclassified instead of guessed
     { input: 'android-app://com.example.unknownapp/', expected: '' },
+    { input: 'android-app://com.google.android.apps.docs/', expected: '' },
   ];
 
   testCases.forEach(({ input, expected }) => {
@@ -167,6 +170,14 @@ describe('classifyAcquisition (short vendor aliases do not over-match)', () => {
     'linear.app',
     'online-store.com',
     'headline.com',
+    // `-` is a regular character inside a hostname label, not a delimiter
+    'my-ig-site.com',
+    'ig-tools.net',
+    'meta-data.io',
+    'my-fb-page.com',
+    'my-yt-channel.com',
+    'the-line-shop.com',
+    'https://my-ig-site.com/',
   ];
 
   unrelated.forEach((input) => {
@@ -181,7 +192,9 @@ describe('classifyAcquisition (short vendor aliases do not over-match)', () => {
     { input: 'paid_ig', expected: 'paid:social:instagram' },
     { input: 'social-ig', expected: ':social:instagram' },
     { input: 'fb', expected: ':social:facebook' },
+    { input: 'FB', expected: ':social:facebook' },
     { input: 'fb_paid', expected: 'paid:social:facebook' },
+    { input: 'fb-paid', expected: 'paid:social:facebook' },
     { input: 'meta', expected: ':social:facebook' },
     { input: 'meta-ads', expected: 'paid:social:facebook' },
     { input: 'yt', expected: ':video:youtube' },
