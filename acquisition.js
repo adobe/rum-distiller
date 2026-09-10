@@ -9,13 +9,20 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
+/*
+ * Short aliases like `ig`, `fb`, `yt` and generic words like `meta` or `line` are
+ * used as UTM values, but as plain substrings they also match unrelated hosts
+ * (`figma.com`, `nytimes.com`, `metadata.io`, `headline.com`). They are therefore
+ * only matched as a standalone label, i.e. delimited by something that cannot be
+ * part of a domain label or a package id.
+ */
 const vendorClassifications = [
   { regex: /google|googleads|google-ads|google_search|google_deman|adwords|dv360|gdn|doubleclick|dbm|gmb/i, result: 'google' },
-  { regex: /instagram|ig/i, result: 'instagram' },
-  { regex: /facebook|fb|meta/i, result: 'facebook' },
+  { regex: /instagram|(?<![a-z0-9])ig(?![a-z0-9])/i, result: 'instagram' },
+  { regex: /facebook|(?<![a-z0-9])(fb|meta)(?![a-z0-9])/i, result: 'facebook' },
   { regex: /bing/i, result: 'bing' },
   { regex: /tiktok/i, result: 'tiktok' },
-  { regex: /youtube|yt/i, result: 'youtube' },
+  { regex: /youtube|(?<![a-z0-9])yt(?![a-z0-9])/i, result: 'youtube' },
   { regex: /linkedin/i, result: 'linkedin' },
   { regex: /twitter/i, result: 'x' },
   { regex: /snapchat/i, result: 'snapchat' },
@@ -30,7 +37,7 @@ const vendorClassifications = [
   { regex: /marketo/i, result: 'marketo' },
   { regex: /eloqua/i, result: 'eloqua' },
   { regex: /substack/i, result: 'substack' },
-  { regex: /line/i, result: 'line' },
+  { regex: /(?<![a-z0-9])line(?![a-z0-9])/i, result: 'line' },
   { regex: /yext/i, result: 'yext' },
   { regex: /teads/i, result: 'teads' },
   { regex: /yandex/i, result: 'yandex' },
@@ -57,7 +64,7 @@ const categoryClassifications = [
   { regex: /search|sem|sea$/i, result: 'search' },
   { regex: /display|programmatic|banner|gdn|dbm/i, result: 'display' },
   { regex: /video|dv360|tv/i, result: 'video' },
-  { regex: /email|newsletter/i, result: 'email' },
+  { regex: /email|newsletter|gmail|mail\.google\.com/i, result: 'email' },
   { regex: /social|bio/i, result: 'social' },
   { regex: /affiliate/i, result: 'affiliate' },
   { regex: /local|gmb/i, result: 'local' },
@@ -120,6 +127,50 @@ const categoryTypeLookup = {
   print: 'owned',
 };
 
+/*
+ * In-app referrers are reported as `android-app://<authority>/`. The authority is
+ * usually a package id in reverse DNS notation (`com.example.app`), but a few apps
+ * report a hostname (`m.facebook.com`, `nextdoor.com`) instead. A hostname is
+ * classified like any other referrer, a package id is looked up below.
+ */
+const inAppReferrerRegex = /^android-app:\/\/([^/]+)/i;
+/* a hostname ends in a TLD, the last label of a package id is the app name */
+const hostnameSuffixRegex = /\.(com|net|org|edu|gov|info|biz|xyz|jp|de|uk|fr|it|es|nl|se|no|dk|fi|pl|cz|ru|cn|kr|br|mx|ca|au|nz|za|tr|il|ch|at|be|pt|ie|gr|hu|ro|ua|sg|hk|tw|th|vn|ph|id)$/i;
+/* a package id starts with a TLD, a hostname does not */
+const packagePrefixRegex = /^(com|net|org|io|co|jp|de|uk|fr|kr|cn|tv|app|dev|me|ai)\./i;
+
+/*
+ * The apps that account for the bulk of in-app referrals, mapped to a source that
+ * the classification above already understands. Only apps with a significant share
+ * are listed: the long tail is left unclassified rather than guessed, because
+ * substring matching a package id invents vendors (`com.google.android.gm` and
+ * `com.google.android.youtube` both look like a Google search).
+ */
+const androidAppSources = {
+  /* an inbox, so email: neither search nor paid */
+  'com.google.android.gm': 'mail.google.com',
+  /* the Google app: Discover feed and search widget, both organic surfaces */
+  'com.google.android.googlequicksearchbox': 'organic google search',
+  'com.google.android.youtube': 'youtube',
+  'com.facebook.katana': 'facebook',
+  'com.instagram.android': 'instagram',
+  'com.linkedin.android': 'linkedin',
+  'com.pinterest': 'pinterest',
+  'com.reddit.frontpage': 'reddit',
+  'com.twitter.android': 'twitter',
+  'jp.naver.line.android': 'line',
+};
+
+function inAppSource(origin) {
+  if (typeof origin !== 'string') return origin;
+  const [, authority] = inAppReferrerRegex.exec(origin) || [];
+  const key = (authority || origin).toLowerCase();
+  if (authority && hostnameSuffixRegex.test(key) && !packagePrefixRegex.test(key)) return key;
+  if (androidAppSources[key]) return androidAppSources[key];
+  /* an unknown app is reported as an in-app referral we cannot attribute */
+  return authority ? '' : origin;
+}
+
 export function vendor(origin) {
   const result = vendorClassifications.find(({ regex }) => regex.test(origin));
   return result ? result.result : '';
@@ -140,11 +191,12 @@ function paidowned(origin, vendorResult, categoryResult) {
 }
 
 export function classifyAcquisition(origin, isPaid = false) {
-  const vendorResult = vendor(origin);
-  const categoryResult = category(origin, vendorResult);
+  const source = inAppSource(origin);
+  const vendorResult = vendor(source);
+  const categoryResult = category(source, vendorResult);
   const paidOwnedResult = isPaid
     ? (typeof isPaid === 'string' && isPaid) || 'paid'
-    : paidowned(origin, vendorResult, categoryResult);
+    : paidowned(source, vendorResult, categoryResult);
 
   let result = paidOwnedResult;
   if (categoryResult || vendorResult) {

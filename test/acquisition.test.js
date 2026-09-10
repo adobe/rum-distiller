@@ -122,3 +122,77 @@ describe('classifyAcquisition', () => {
       });
     });
 });
+
+describe('classifyAcquisition (Android in-app referrers)', () => {
+  const testCases = [
+    // Gmail is an inbox, not a Google search, and never paid
+    { input: 'android-app://com.google.android.gm/', expected: 'owned:email:google' },
+    { input: 'com.google.android.gm', expected: 'owned:email:google' },
+    { input: 'mail.google.com', expected: 'owned:email:google' },
+    // the Google app (Discover feed and search widget) is an organic surface
+    { input: 'android-app://com.google.android.googlequicksearchbox/', expected: 'owned:search:google' },
+    { input: 'com.google.android.googlequicksearchbox', expected: 'owned:search:google' },
+    // the authority is not always a package id, some apps report a hostname
+    { input: 'android-app://m.facebook.com/', expected: ':social:facebook' },
+    { input: 'android-app://nextdoor.com/', expected: '' },
+    // known social and video apps keep their vendor and category
+    { input: 'android-app://jp.naver.line.android/', expected: ':social:line' },
+    { input: 'android-app://com.linkedin.android/', expected: ':social:linkedin' },
+    { input: 'android-app://com.pinterest/', expected: ':social:pinterest' },
+    { input: 'android-app://com.reddit.frontpage/', expected: 'paid:social:reddit' },
+    { input: 'android-app://com.facebook.katana/', expected: ':social:facebook' },
+    { input: 'android-app://com.instagram.android/', expected: ':social:instagram' },
+    { input: 'android-app://com.twitter.android/', expected: ':social:x' },
+    { input: 'android-app://com.google.android.youtube/', expected: ':video:youtube' },
+    // an app we don't know is left unclassified instead of guessed
+    { input: 'android-app://com.example.unknownapp/', expected: '' },
+  ];
+
+  testCases.forEach(({ input, expected }) => {
+    it(`should classify "${input}" as "${expected}"`, () => {
+      assert.strictEqual(classifyAcquisition(input), expected);
+    });
+  });
+});
+
+describe('classifyAcquisition (short vendor aliases do not over-match)', () => {
+  const unrelated = [
+    'nytimes.com',
+    'figma.com',
+    'signal.org',
+    'lightroom.adobe.com',
+    'digg.com',
+    'bigcommerce.com',
+    'metadata.io',
+    'linear.app',
+    'online-store.com',
+    'headline.com',
+  ];
+
+  unrelated.forEach((input) => {
+    it(`should not assign a vendor to "${input}"`, () => {
+      assert.strictEqual(classifyAcquisition(input), '');
+    });
+  });
+
+  const aliases = [
+    { input: 'ig', expected: ':social:instagram' },
+    { input: 'IG', expected: ':social:instagram' },
+    { input: 'paid_ig', expected: 'paid:social:instagram' },
+    { input: 'social-ig', expected: ':social:instagram' },
+    { input: 'fb', expected: ':social:facebook' },
+    { input: 'fb_paid', expected: 'paid:social:facebook' },
+    { input: 'meta', expected: ':social:facebook' },
+    { input: 'meta-ads', expected: 'paid:social:facebook' },
+    { input: 'yt', expected: ':video:youtube' },
+    { input: 'yt_organic', expected: 'owned:video:youtube' },
+    { input: 'line', expected: ':social:line' },
+    { input: 'line-organic', expected: 'owned:social:line' },
+  ];
+
+  aliases.forEach(({ input, expected }) => {
+    it(`should still classify "${input}" as "${expected}"`, () => {
+      assert.strictEqual(classifyAcquisition(input), expected);
+    });
+  });
+});
