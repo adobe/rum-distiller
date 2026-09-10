@@ -4,22 +4,88 @@ RUM Distiller is a JavaScript library for data exploration of Adobe RUM data. It
 the form of "series", "groups", and "facets". You can then filter the data based on the defined facets, and will automatically get data
 aggregations for the series.
 
-### Estimating “Dark Matter” URLs (Chao1)
+## Quick Start (Single Pass)
 
-When sampling hides low‑traffic pages, you can estimate the total number of URLs that received ≥1 visit using a classical unseen‑species estimator (Chao1), plus a 95% CI.
+Use Distiller in-process for straightforward single-pass analysis.
 
-- Inline API:
-  - `dc.estimators.plainURL.chao1` returns `{ sObs, sHat, sUnseen, f1, f2, ci, darkCI }` for the current filters/window.
-  - Uses raw bundle counts (independent observations), not weighted totals.
+```js
+import { DataChunks } from '@adobe/rum-distiller';
+import { series, facets } from '@adobe/rum-distiller';
 
-- Direct functions (for raw rows or custom flows):
-  - `import { chao1, chao1CI, inferSamplesFromCI, estimateDarkMatterFromCI, estimateDarkMatterFromCIWithCI } from './src/estimators/chao1.js'`
+const dc = new DataChunks();
+dc.load(chunks); // [{ date, rumBundles: [...] }, ...]
 
-See algorithm details in [src/estimators/README.md](src/estimators/README.md).
+dc.addSeries('pageViews', series.pageViews);
+dc.addSeries('lcp', series.lcp);
+dc.addFacet('plainURL', facets.plainURL);
 
-References
-- Chao, A. (1984). Nonparametric estimation of the number of classes in a population. Scandinavian Journal of Statistics, 11, 265–270. https://doi.org/10.2307/4615964
-- Chao, A. (1987). Estimating the population size for capture–recapture data with unequal catchability. Biometrics, 43(4), 783–791. https://doi.org/10.2307/2531532
+// Optional filter
+dc.filter = { userAgent: ['desktop'] };
+
+console.log(dc.totals.pageViews.sum);
+console.log(dc.facets.plainURL.slice(0, 10));
+```
+
+## Async Analysis with StreamingDataChunks
+
+Use a Web Worker for non‑blocking analysis and get progressive results while data loads. The StreamingDataChunks wrapper combines progressive computation and streaming ingestion into a single, simple API.
+
+Basic usage (browser):
+
+```js
+import { createStreamingDataChunks } from '@adobe/rum-distiller/worker/streaming';
+const dc = createStreamingDataChunks(new URL('@adobe/rum-distiller/worker', import.meta.url));
+
+// Configure shape
+dc.addDistillerSeries('pageViews');
+dc.addDistillerSeries('lcp');
+dc.addDistillerFacet('plainURL');
+dc.setThresholds(20);
+dc.prepareQuantiles(0.5, 0.9, 0.99); // 20 phases; final 1 implied
+dc.defaultTopK = 50; // or dc.topK['plainURL'] = 25 per facet
+
+// Optional: custom facet/series from your own ESM (same origin)
+dc.addModuleFacet('myFacet', new URL('./my-facets.js', import.meta.url));
+dc.addModuleSeries('mySeries', new URL('./my-series.js', import.meta.url));
+
+// Stream results
+dc.expectChunks = 60; // expected number of incoming slices
+dc.onSnap((snap) => {
+  // snap.phase in (0,1]; snap.ingestion.coverage in [0,1]
+  // snap.progress = phase * coverage (0..1)
+  // snap.totals[seriesName] => { count, sum, min, max, mean }
+  // snap.quantiles[seriesName] => { 50: ..., 90: ... } (approx early, exact at completion)
+  // snap.facets[facetName] => Top‑K { value, count, weight }
+  render(snap);
+});
+dc.onDone((snap) => {
+  // Called once when progress reaches 100%
+  console.log('Complete');
+});
+
+// Load slices as they arrive
+dc.load(slice1);
+dc.load(slice2);
+// ...
+dc.load(); // finalize: no more data expected
+
+// Filters (streaming)
+// Setting dc.filter resets phase thresholds and replays already-loaded data.
+dc.filter = { userAgent: ['desktop:macos'] };
+```
+
+Notes
+- Auto‑progression keeps compute from falling behind ingestion (never > 50% behind) and advances through thresholds.
+- The worker only posts aggregated snapshots; raw bundles never leave the worker thread.
+- Custom facets/series are loaded from your own ESM modules (same origin). The distiller library can be served from a CDN (e.g., esm.sh) while your app and modules come from your host.
+
+Totals vs Estimates
+- While incomplete, the worker returns scaled estimates by default:
+  - Progressive completeness `f = phase`; Streaming completeness `f = phase × coverage`.
+  - `totals[series].count` and `.sum` are scaled by `1/f`; `min/max/mean` reflect the observed sample.
+  - `sampleTotals` holds raw partials when `f < 1`.
+- Quantiles
+  - `approxQuantiles` (P²) during sampling/ingestion, `exactQuantiles` when `phase === 1 && coverage === 1`.
 
 ## Concepts
 
@@ -120,3 +186,20 @@ the metrics for the current filter. The type of these totals is an [`Aggregate`]
 const totalPageViews = data.totals.pageViews.sum;
 ```
 If we have set up a `pageViews` series, this will be the total number of page views. In addition to getting the sum, we can also get the `mean` (average), `min`, `max`, `median`, `stddev` (standard deviation), and `percentiles` (any arbitrary percentile, e.g. 50th, 90th, 99th percentiles).
+
+## Estimating “Dark Matter” URLs (Chao1)
+
+When sampling hides low‑traffic pages, you can estimate the total number of URLs that received ≥1 visit using a classical unseen‑species estimator (Chao1), plus a 95% CI.
+
+- Inline API:
+  - `dc.estimators.plainURL.chao1` returns `{ sObs, sHat, sUnseen, f1, f2, ci, darkCI }` for the current filters/window.
+  - Uses raw bundle counts (independent observations), not weighted totals.
+
+- Direct functions (for raw rows or custom flows):
+  - `import { chao1, chao1CI, inferSamplesFromCI, estimateDarkMatterFromCI, estimateDarkMatterFromCIWithCI } from './src/estimators/chao1.js'`
+
+See algorithm details in [src/estimators/README.md](src/estimators/README.md).
+
+References
+- Chao, A. (1984). Nonparametric estimation of the number of classes in a population. Scandinavian Journal of Statistics, 11, 265–270. https://doi.org/10.2307/4615964
+- Chao, A. (1987). Estimating the population size for capture–recapture data with unequal catchability. Biometrics, 43(4), 783–791. https://doi.org/10.2307/2531532
