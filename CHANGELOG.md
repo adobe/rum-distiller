@@ -1,3 +1,11 @@
+## [1.23.1](https://github.com/adobe/rum-distiller/compare/v1.23.0...v1.23.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **acquisition:** classify Android in-app referrers, stop alias over-matching ([db17ab8](https://github.com/adobe/rum-distiller/commit/db17ab8eda93f681fd3c813277ef9e997e721964))
+* **acquisition:** match aliases on whole labels in hostnames, widen TLD check ([7425cf5](https://github.com/adobe/rum-distiller/commit/7425cf5bfd90afaf8c3c0ccdad6b9bc9fbffc9f9))
+
 # [1.23.0](https://github.com/adobe/rum-distiller/compare/v1.22.2...v1.23.0) (2026-01-27)
 
 
