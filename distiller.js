@@ -244,23 +244,22 @@ class Facet {
     this.name = name;
     this.count = 0;
     this.weight = 0;
-    // the list of bundles is materialized lazily, on first access to `entries`
-    this.entriesIn = materializeFn ? undefined : [];
-    this.materializeFn = materializeFn;
-  }
-
-  /**
-   * @returns {Bundle[]} the bundles that have this facet value
-   */
-  get entries() {
-    if (this.entriesIn === undefined) {
-      this.materializeFn();
-    }
-    return this.entriesIn;
-  }
-
-  set entries(entries) {
-    this.entriesIn = entries;
+    // the list of bundles is materialized lazily, on first access to `entries`.
+    // It is an own enumerable property, so that cloning a facet keeps the entries.
+    let entries = materializeFn ? undefined : [];
+    Object.defineProperty(this, 'entries', {
+      enumerable: true,
+      configurable: true,
+      get() {
+        if (entries === undefined) {
+          materializeFn();
+        }
+        return entries;
+      },
+      set(list) {
+        entries = list;
+      },
+    });
   }
 
   /**
@@ -619,7 +618,7 @@ export class DataChunks {
     // facets[series]
     this.facetsIn = {};
     // per-filter-attribute pass masks
-    this.passMasks = {};
+    this.passMasks = new Map();
     // cache statistics for performance measurement
     this.cacheStats = {
       hits: 0,
@@ -796,7 +795,8 @@ export class DataChunks {
         return null;
       }
       const masks = active.map(([facetName, desiredValues]) => {
-        if (!this.passMasks[facetName]) {
+        let cached = this.passMasks.get(facetName);
+        if (!cached) {
           const col = this.column(this.facetFns[facetName]);
           const { flags, distinct } = col.desiredFlags(desiredValues);
           const mode = matchMode(this.facetCombiners[facetName] || 'some');
@@ -808,17 +808,15 @@ export class DataChunks {
             this.cacheStats.setUsage += col.n;
           }
           col.fresh = false;
-          this.passMasks[facetName] = {
-            mask: this.kernels.match(col, flags, mode, distinct), mode, n: col.n,
-          };
+          cached = { mask: this.kernels.match(col, flags, mode, distinct), mode, n: col.n };
+          this.passMasks.set(facetName, cached);
         } else {
-          const { n } = this.passMasks[facetName];
-          this.cacheStats.hits += n;
-          if (this.passMasks[facetName].mode !== MODE_SOME) {
-            this.cacheStats.setUsage += n;
+          this.cacheStats.hits += cached.n;
+          if (cached.mode !== MODE_SOME) {
+            this.cacheStats.setUsage += cached.n;
           }
         }
-        return this.passMasks[facetName].mask;
+        return cached.mask;
       });
       if (masks.length === 1) {
         return masks[0];

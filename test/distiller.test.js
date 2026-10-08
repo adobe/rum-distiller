@@ -1513,6 +1513,29 @@ describe('DataChunks facet value memoization', () => {
     assert.equal(calls, n);
   });
 
+  it('keeps entries as an enumerable property of facets', () => {
+    const d = new DataChunks();
+    d.load(chunks);
+    d.addFacet('userAgent', (bundle) => bundle.userAgent);
+    const [facet] = d.facets.userAgent;
+    assert.deepEqual(Object.keys(facet), ['parent', 'value', 'name', 'count', 'weight', 'entries']);
+    const clone = { ...facet };
+    assert.equal(clone.entries.length, facet.count);
+    assert.equal(clone.entries, facet.entries);
+  });
+
+  it('supports facet names that shadow Object.prototype properties', () => {
+    const d = new DataChunks();
+    d.load(chunks);
+    d.addFacet('constructor', (bundle) => bundle.host);
+    d.addFacet('toString', (bundle) => bundle.userAgent.split(':')[0]);
+    d.filter = { constructor: ['www.aem.live'], toString: ['desktop'] };
+    const expected = d.bundles
+      .filter((b) => b.host === 'www.aem.live' && b.userAgent.startsWith('desktop'));
+    assert.equal(d.filtered.length, expected.length);
+    assert.ok(d.filtered.length > 0);
+  });
+
   it('treats a filter with only empty value lists as no filter', () => {
     const d = new DataChunks();
     d.load(chunks);
