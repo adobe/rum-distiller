@@ -174,6 +174,43 @@ export function computeConversionRate(conversions, visits) {
   return 100;
 }
 
+const SYNTHETIC_CLICK = 'bot:untrusted';
+const HIDDEN_CLICK = 'bot:hidden';
+const isClickMarker = (ua) => ua === SYNTHETIC_CLICK || ua === HIDDEN_CLICK;
+
+/**
+ * Classifies a page view's user agent from the clicks inside it.
+ *
+ * The collector labels a click `bot:untrusted` when it was synthetic (dispatched by
+ * script, `isTrusted === false`) and `bot:hidden` when it fired while the tab was
+ * hidden. The bundler keeps such a click's user agent on the event only when it
+ * differs from the bundle's, so an event's effective user agent is
+ * `event.userAgent ?? bundle.userAgent`.
+ *
+ * - no marked clicks: the bundle's own user agent, unchanged
+ * - every click synthetic: `bot:untrusted`
+ * - every click marked, any of them hidden: `bot:hidden` (the sneakier signal wins)
+ * - marked clicks next to unmarked ones: a human, most likely on a page whose own
+ *   script calls `el.click()`. Returns the bundle's user agent, or the first
+ *   unmarked click's when the bundle itself was opened by a marked click.
+ *
+ * Any other bundle-level bot classification (crawlers, `bot:webdriver`) is final.
+ * @param {Object} bundle a bundle of sampled rum events, with `userAgent` and `events`
+ * @returns {string} the user agent class of the page view
+ */
+export function classifyUserAgent(bundle) {
+  const { userAgent, events = [] } = bundle;
+  if (userAgent.startsWith('bot') && !isClickMarker(userAgent)) return userAgent;
+  const clicks = events
+    .filter((e) => e.checkpoint === 'click')
+    .map((e) => e.userAgent ?? userAgent);
+  const marked = clicks.filter(isClickMarker);
+  if (marked.length === 0) return userAgent;
+  const human = clicks.find((ua) => !isClickMarker(ua));
+  if (human) return isClickMarker(userAgent) ? human : userAgent;
+  return marked.includes(HIDDEN_CLICK) ? HIDDEN_CLICK : SYNTHETIC_CLICK;
+}
+
 export function reclassifyConsent({ source, target, checkpoint }) {
   if (checkpoint === 'click' && source) {
     const consent = classifyConsent(source);
