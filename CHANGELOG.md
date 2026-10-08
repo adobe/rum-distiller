@@ -1,3 +1,15 @@
+## [1.23.2](https://github.com/adobe/rum-distiller/compare/v1.23.1...v1.23.2) (2026-10-08)
+
+
+### Bug Fixes
+
+* **distiller:** keep Facet.entries enumerable, use Map for pass mask cache ([cefecba](https://github.com/adobe/rum-distiller/commit/cefecba63a922c21e103445fdd6ca82cb8a259c7))
+
+
+### Performance Improvements
+
+* **distiller:** columnar facet engine, evaluate facet functions once per bundle ([869257f](https://github.com/adobe/rum-distiller/commit/869257f945b5d13512b4c2036a70341a3f69fbe8))
+
 ## [1.23.1](https://github.com/adobe/rum-distiller/compare/v1.23.0...v1.23.1) (2026-09-10)
 
 
