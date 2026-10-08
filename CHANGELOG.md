@@ -1,3 +1,15 @@
+## [1.23.3](https://github.com/adobe/rum-distiller/compare/v1.23.2...v1.23.3) (2026-10-08)
+
+
+### Bug Fixes
+
+* **aggregate:** invalidate sorted cache when values change ([1501b45](https://github.com/adobe/rum-distiller/commit/1501b45f98bf4c059a3aa81ac5e0143d086306b1))
+
+
+### Performance Improvements
+
+* **aggregate:** cache sorted values for percentile/median to avoid repeated sorts ([1fa5677](https://github.com/adobe/rum-distiller/commit/1fa5677e6fdb47a48a25974e71e127841921928a))
+
 ## [1.23.2](https://github.com/adobe/rum-distiller/compare/v1.23.1...v1.23.2) (2026-10-08)
 
 
