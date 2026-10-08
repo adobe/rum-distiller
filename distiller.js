@@ -913,27 +913,6 @@ export class DataChunks {
   }
 
   /**
-   * @private
-   * @param {Bundle[]} bundles
-   * @param {Object<string, string[]>} filterSpec
-   * @param {string[]} skipped facets to skip
-   */
-  filterBundles(bundles, filterSpec, skipped = []) {
-    const existenceFilterFn = ([facetName]) => {
-      if (!this.facetFns[facetName]) {
-        throw new Error(`Unknown "${facetName}" facet in filter`);
-      }
-      return this.facetFns[facetName];
-    };
-    const skipFilterFn = ([facetName]) => !skipped.includes(facetName);
-    const valuesExtractorFn = (attributeName, bundle, parent, asSet = false) => parent
-      .cachedFacetValues(attributeName, bundle, asSet);
-    const combinerExtractorFn = (attributeName, parent) => parent.facetCombiners[attributeName] || 'some';
-    // eslint-disable-next-line max-len
-    return this.applyFilter(bundles, filterSpec, skipFilterFn, existenceFilterFn, valuesExtractorFn, combinerExtractorFn);
-  }
-
-  /**
    * Calculate filter selectivity score. Lower scores = more selective = evaluated first.
    * Uses actual facet bundle counts when available, falling back to desiredValues.length.
    * @private

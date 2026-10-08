@@ -1512,6 +1512,54 @@ describe('DataChunks facet value memoization', () => {
     assert.ok(d.filtered.every((b) => !b.userAgent.startsWith('desktop')));
     assert.equal(calls, n);
   });
+
+  it('treats a filter with only empty value lists as no filter', () => {
+    const d = new DataChunks();
+    d.load(chunks);
+    d.addFacet('userAgent', (bundle) => bundle.userAgent);
+    d.filter = { userAgent: [] };
+    assert.equal(d.filtered.length, d.bundles.length);
+    assert.notEqual(d.filtered, d.bundles);
+  });
+
+  it('reuses values computed by hasConversion when building a column', () => {
+    const d = new DataChunks();
+    d.load(chunks);
+    let calls = 0;
+    d.addFacet('checkpoint', (bundle) => {
+      calls += 1;
+      return bundle.events.map((e) => e.checkpoint);
+    });
+    const [first] = d.bundles;
+    assert.equal(d.hasConversion(first, { checkpoint: ['top'] }), true);
+    assert.equal(calls, 1);
+    const filtered = d.filterBy({ checkpoint: ['top'] });
+    assert.ok(filtered.includes(first));
+    assert.equal(calls, d.bundles.length);
+    assert.ok(d.getCacheStats().hits >= 1);
+  });
+
+  it('serves hasConversion from an existing column, for scalar and array facets', () => {
+    const d = new DataChunks();
+    d.load(chunks);
+    let calls = 0;
+    d.addFacet('host', (bundle) => {
+      calls += 1;
+      return bundle.host;
+    });
+    d.addFacet('checkpoint', (bundle) => {
+      calls += 1;
+      return bundle.events.map((e) => e.checkpoint);
+    });
+    d.filterBy({ host: ['www.aem.live'], checkpoint: ['top'] });
+    const before = calls;
+    const [first] = d.bundles;
+    assert.equal(d.hasConversion(first, { host: ['www.aem.live'] }), true);
+    assert.equal(d.hasConversion(first, { host: ['example.com'] }), false);
+    assert.equal(d.hasConversion(first, { checkpoint: ['top', 'lazy'] }), true);
+    assert.equal(d.hasConversion(first, { checkpoint: ['no-such-checkpoint'] }), false);
+    assert.equal(calls, before);
+  });
 });
 
 describe('DataChunks.addHistogramFacet()', () => {
