@@ -166,8 +166,10 @@ class Aggregate {
     this.weight = 0;
     this.values = [];
     this.parentProvider = parentProvider;
-    // lazily sorted cache flag for percentile/median
-    this._sorted = false;
+    // `values` array and length at the time of the last sort, so that
+    // percentile/median only re-sort when values have been added or replaced
+    this.sortedValues = null;
+    this.sortedLength = -1;
   }
 
   get parent() {
@@ -220,10 +222,11 @@ class Aggregate {
   }
 
   percentile(p) {
-    if (!this._sorted) {
-      // Sort once in place; all other metrics are order-insensitive
+    if (this.sortedValues !== this.values || this.sortedLength !== this.values.length) {
+      // Sort in place; all other metrics are order-insensitive
       this.values.sort((left, right) => left - right);
-      this._sorted = true;
+      this.sortedValues = this.values;
+      this.sortedLength = this.values.length;
     }
     const index = Math.floor((p / 100) * this.values.length);
     return this.values[index];
