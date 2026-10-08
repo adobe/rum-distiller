@@ -17,6 +17,9 @@
  */
 import { urlProducer } from './utils.js';
 import { chao1CI } from './src/estimators/chao1.js';
+import {
+  FacetColumn, jsKernels, matchMode, MODE_SOME,
+} from './src/columnar.js';
 
 // Static lookup tables for filter combiners and negators
 // Hoisted to module level to avoid recreating on every bundle filter iteration
@@ -235,13 +238,29 @@ class InterpolatedAggregate {
 }
 
 class Facet {
-  constructor(parent, value, name) {
+  constructor(parent, value, name, materializeFn = undefined) {
     this.parent = parent;
     this.value = value;
     this.name = name;
     this.count = 0;
     this.weight = 0;
-    this.entries = [];
+    // the list of bundles is materialized lazily, on first access to `entries`
+    this.entriesIn = materializeFn ? undefined : [];
+    this.materializeFn = materializeFn;
+  }
+
+  /**
+   * @returns {Bundle[]} the bundles that have this facet value
+   */
+  get entries() {
+    if (this.entriesIn === undefined) {
+      this.materializeFn();
+    }
+    return this.entriesIn;
+  }
+
+  set entries(entries) {
+    this.entriesIn = entries;
   }
 
   /**
@@ -299,6 +318,8 @@ export class DataChunks {
   constructor() {
     this.data = [];
     this.filters = {};
+    // kernels used for filtering and grouping over the columnar facet values
+    this.kernels = jsKernels;
     this.resetData();
     this.resetSeries();
     this.resetFacets();
@@ -566,6 +587,27 @@ export class DataChunks {
    */
 
   resetData() {
+    this.resetFiltered();
+    // memoziaton
+    this.memo = {};
+    // cache for facet function results: WeakMap<bundle, Map<facetFn, cachedValue>>
+    // keyed by the facet function, so that a facet and its negated twin share entries.
+    // Facet values only depend on the bundle and the facet function, so this cache
+    // survives filter changes.
+    this.facetValueCache = new WeakMap();
+    // columnar (dictionary-encoded) facet values: Map<facetFn, FacetColumn>
+    this.columns = new Map();
+    if (this.kernels) {
+      this.kernels.release();
+    }
+  }
+
+  /**
+   * Resets all caches that depend on the current filter, but keeps
+   * the (expensive) per-bundle facet value cache.
+   * @private
+   */
+  resetFiltered() {
     // data that has been filtered
     this.filteredIn = null;
     // filtered data that has been grouped
@@ -576,10 +618,8 @@ export class DataChunks {
     this.totalsIn = {};
     // facets[series]
     this.facetsIn = {};
-    // memoziaton
-    this.memo = {};
-    // cache for facet function results: WeakMap<bundle, Map<attributeName, cachedValue>>
-    this.facetValueCache = new WeakMap();
+    // per-filter-attribute pass masks
+    this.passMasks = {};
     // cache statistics for performance measurement
     this.cacheStats = {
       hits: 0,
@@ -653,7 +693,7 @@ export class DataChunks {
   set filter(filterSpec) {
     this.filters = filterSpec;
     // reset caches that depend on the filter
-    this.resetData();
+    this.resetFiltered();
   }
 
   /**
@@ -695,6 +735,185 @@ export class DataChunks {
 
   /**
    * @private
+   * @returns {Float64Array} the weights of all bundles
+   */
+  get weights() {
+    if (!this.memo.weights) {
+      const { bundles } = this;
+      const weights = new Float64Array(bundles.length);
+      for (let i = 0; i < bundles.length; i += 1) {
+        weights[i] = bundles[i].weight;
+      }
+      this.memo.weights = weights;
+    }
+    return this.memo.weights;
+  }
+
+  /**
+   * @private
+   * @param {function} facetFn the facet value function
+   * @returns {FacetColumn} the dictionary-encoded facet values of all bundles
+   */
+  column(facetFn) {
+    let col = this.columns.get(facetFn);
+    if (!col) {
+      const { bundles } = this;
+      // reuse values that have already been computed by hasConversion
+      const valueFn = (bundle) => {
+        const cached = this.facetValueCache.get(bundle)?.get(facetFn);
+        if (cached !== undefined) {
+          this.cacheStats.hits += 1;
+          return cached.raw;
+        }
+        this.cacheStats.misses += 1;
+        return facetFn(bundle);
+      };
+      col = new FacetColumn(bundles, valueFn, this.weights);
+      col.fresh = true;
+      this.columns.set(facetFn, col);
+    }
+    return col;
+  }
+
+  /**
+   * Computes which bundles pass the filter, using the columnar kernels.
+   * @private
+   * @param {Object<string, string[]>} filterSpec the filter specification
+   * @param {string[]} skipped facets to skip
+   * @returns {Uint8Array|null} per-bundle pass mask, or null if no filter applies
+   */
+  filterMask(filterSpec, skipped = []) {
+    try {
+      const active = Object.entries(filterSpec)
+        .filter(([facetName]) => !skipped.includes(facetName))
+        .filter(([, desiredValues]) => desiredValues.length);
+      active.forEach(([facetName]) => {
+        if (!this.facetFns[facetName]) {
+          throw new Error(`Unknown "${facetName}" facet in filter`);
+        }
+      });
+      if (active.length === 0) {
+        return null;
+      }
+      const masks = active.map(([facetName, desiredValues]) => {
+        if (!this.passMasks[facetName]) {
+          const col = this.column(this.facetFns[facetName]);
+          const { flags, distinct } = col.desiredFlags(desiredValues);
+          const mode = matchMode(this.facetCombiners[facetName] || 'some');
+          // keep cache statistics comparable to the per-bundle cache
+          if (!col.fresh) {
+            this.cacheStats.hits += col.n;
+          }
+          if (mode !== MODE_SOME) {
+            this.cacheStats.setUsage += col.n;
+          }
+          col.fresh = false;
+          this.passMasks[facetName] = {
+            mask: this.kernels.match(col, flags, mode, distinct), mode, n: col.n,
+          };
+        } else {
+          const { n } = this.passMasks[facetName];
+          this.cacheStats.hits += n;
+          if (this.passMasks[facetName].mode !== MODE_SOME) {
+            this.cacheStats.setUsage += n;
+          }
+        }
+        return this.passMasks[facetName].mask;
+      });
+      if (masks.length === 1) {
+        return masks[0];
+      }
+      const out = masks[0].slice();
+      for (let m = 1; m < masks.length; m += 1) {
+        const mask = masks[m];
+        for (let i = 0; i < out.length; i += 1) {
+          if (!mask[i]) {
+            out[i] = 0;
+          }
+        }
+      }
+      return out;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn(`Error while applying filter: ${error.message}`);
+      return new Uint8Array(this.bundles.length);
+    }
+  }
+
+  /**
+   * Returns the memoized facet value entry for a bundle, evaluating
+   * the facet function at most once per bundle.
+   * @private
+   * @param {function} facetFn the facet value function
+   * @param {Bundle} bundle the bundle
+   * @returns {{raw: *, array: Array, set: Set|undefined, hit: boolean}} cache entry
+   */
+  facetValueEntry(facetFn, bundle) {
+    let bundleCache = this.facetValueCache.get(bundle);
+    if (bundleCache === undefined) {
+      bundleCache = new Map();
+      this.facetValueCache.set(bundle, bundleCache);
+    }
+    const cached = bundleCache.get(facetFn);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const raw = this.columnValue(facetFn, bundle);
+    const entry = { raw, array: Array.isArray(raw) ? raw : [raw], set: undefined };
+    bundleCache.set(facetFn, entry);
+    return entry;
+  }
+
+  /**
+   * Looks up the facet value of a bundle in an existing column, falling back
+   * to evaluating the facet function.
+   * @private
+   * @param {function} facetFn the facet value function
+   * @param {Bundle} bundle the bundle
+   * @returns {*} the facet value
+   */
+  columnValue(facetFn, bundle) {
+    const col = this.columns.get(facetFn);
+    if (col) {
+      if (!this.memo.bundleIndex) {
+        this.memo.bundleIndex = new Map(this.bundles.map((b, i) => [b, i]));
+      }
+      const i = this.memo.bundleIndex.get(bundle);
+      if (i !== undefined) {
+        return col.rawValue(i);
+      }
+    }
+    return facetFn(bundle);
+  }
+
+  /**
+   * @private
+   * @param {string} attributeName the facet name
+   * @param {Bundle} bundle the bundle
+   * @param {boolean} asSet return a Set instead of an array
+   * @returns {Array|Set} facet values of the bundle
+   */
+  cachedFacetValues(attributeName, bundle, asSet = false) {
+    const facetFn = this.facetFns[attributeName];
+    const bundleCache = this.facetValueCache.get(bundle);
+    if (bundleCache !== undefined && bundleCache.has(facetFn)) {
+      this.cacheStats.hits += 1;
+    } else {
+      this.cacheStats.misses += 1;
+    }
+    const entry = this.facetValueEntry(facetFn, bundle);
+    if (!asSet) {
+      return entry.array;
+    }
+    this.cacheStats.setUsage += 1;
+    if (entry.set === undefined) {
+      entry.set = new Set(entry.array);
+    }
+    return entry.set;
+  }
+
+  /**
+   * @private
    * @param {Bundle[]} bundles
    * @param {Object<string, string[]>} filterSpec
    * @param {string[]} skipped facets to skip
@@ -707,46 +926,8 @@ export class DataChunks {
       return this.facetFns[facetName];
     };
     const skipFilterFn = ([facetName]) => !skipped.includes(facetName);
-    const valuesExtractorFn = (attributeName, bundle, parent, asSet = false) => {
-      // Optimized cache access with pre-initialization check elimination
-      let bundleCache = parent.facetValueCache.get(bundle);
-      if (bundleCache === undefined) {
-        // First access to this bundle - create and populate cache
-        bundleCache = new Map();
-        parent.facetValueCache.set(bundle, bundleCache);
-        parent.cacheStats.misses += 1;
-        if (asSet) {
-          parent.cacheStats.setUsage += 1;
-        }
-        const facetValue = parent.facetFns[attributeName](bundle);
-        const array = Array.isArray(facetValue) ? facetValue : [facetValue];
-        const set = new Set(array);
-        bundleCache.set(attributeName, { array, set });
-        return asSet ? set : array;
-      }
-
-      // Cache hit path - check if attribute is cached
-      const cached = bundleCache.get(attributeName);
-      if (cached !== undefined) {
-        parent.cacheStats.hits += 1;
-        if (asSet) {
-          parent.cacheStats.setUsage += 1;
-        }
-        // Return the requested format (array or Set)
-        return asSet ? cached.set : cached.array;
-      }
-
-      // Attribute not yet cached for this bundle
-      parent.cacheStats.misses += 1;
-      if (asSet) {
-        parent.cacheStats.setUsage += 1;
-      }
-      const facetValue = parent.facetFns[attributeName](bundle);
-      const array = Array.isArray(facetValue) ? facetValue : [facetValue];
-      const set = new Set(array);
-      bundleCache.set(attributeName, { array, set });
-      return asSet ? set : array;
-    };
+    const valuesExtractorFn = (attributeName, bundle, parent, asSet = false) => parent
+      .cachedFacetValues(attributeName, bundle, asSet);
     const combinerExtractorFn = (attributeName, parent) => parent.facetCombiners[attributeName] || 'some';
     // eslint-disable-next-line max-len
     return this.applyFilter(bundles, filterSpec, skipFilterFn, existenceFilterFn, valuesExtractorFn, combinerExtractorFn);
@@ -875,46 +1056,8 @@ export class DataChunks {
       return this.facetFns[facetName];
     };
     const skipFilterFn = () => true;
-    const valuesExtractorFn = (attributeName, bundle, parent, asSet = false) => {
-      // Optimized cache access with pre-initialization check elimination
-      let bundleCache = parent.facetValueCache.get(bundle);
-      if (bundleCache === undefined) {
-        // First access to this bundle - create and populate cache
-        bundleCache = new Map();
-        parent.facetValueCache.set(bundle, bundleCache);
-        parent.cacheStats.misses += 1;
-        if (asSet) {
-          parent.cacheStats.setUsage += 1;
-        }
-        const facetValue = parent.facetFns[attributeName](bundle);
-        const array = Array.isArray(facetValue) ? facetValue : [facetValue];
-        const set = new Set(array);
-        bundleCache.set(attributeName, { array, set });
-        return asSet ? set : array;
-      }
-
-      // Cache hit path - check if attribute is cached
-      const cached = bundleCache.get(attributeName);
-      if (cached !== undefined) {
-        parent.cacheStats.hits += 1;
-        if (asSet) {
-          parent.cacheStats.setUsage += 1;
-        }
-        // Return the requested format (array or Set)
-        return asSet ? cached.set : cached.array;
-      }
-
-      // Attribute not yet cached for this bundle
-      parent.cacheStats.misses += 1;
-      if (asSet) {
-        parent.cacheStats.setUsage += 1;
-      }
-      const facetValue = parent.facetFns[attributeName](bundle);
-      const array = Array.isArray(facetValue) ? facetValue : [facetValue];
-      const set = new Set(array);
-      bundleCache.set(attributeName, { array, set });
-      return asSet ? set : array;
-    };
+    const valuesExtractorFn = (attributeName, bundle, parent, asSet = false) => parent
+      .cachedFacetValues(attributeName, bundle, asSet);
     const combinerExtractorFn = () => combiner || 'every';
 
     return this.applyFilter(
@@ -952,7 +1095,24 @@ export class DataChunks {
     if (this.filteredIn) return this.filteredIn;
     if (Object.keys(this.filters).length === 0) return this.bundles; // no filter, return all
     if (Object.keys(this.facetFns).length === 0) return this.bundles; // no facets, return all
-    this.filteredIn = this.filterBundles(this.bundles, this.filters);
+    const { bundles } = this;
+    const mask = this.filterMask(this.filters);
+    if (mask === null) {
+      this.filteredIn = bundles.slice();
+      return this.filteredIn;
+    }
+    let count = 0;
+    for (let i = 0; i < mask.length; i += 1) {
+      count += mask[i];
+    }
+    const filtered = new Array(count);
+    for (let i = 0, k = 0; i < mask.length; i += 1) {
+      if (mask[i]) {
+        filtered[k] = bundles[i];
+        k += 1;
+      }
+    }
+    this.filteredIn = filtered;
     return this.filteredIn;
   }
 
@@ -1093,18 +1253,7 @@ export class DataChunks {
   get facets() {
     if (Object.keys(this.facetsIn).length) return this.facetsIn;
 
-    const f = (facet, bundle) => {
-      // add the bundle to the entries
-      // so that we can calculate metrics
-      // later on
-      facet.entries.push(bundle);
-      // eslint-disable-next-line no-param-reassign
-      facet.count += 1;
-      // eslint-disable-next-line no-param-reassign
-      facet.weight += bundle.weight;
-      return facet;
-    };
-
+    const { bundles } = this;
     this.facetsIn = Object.entries(this.facetFns)
       .reduce((accOuter, [facetName, facetValueFn]) => {
         // build a list of skipped facets
@@ -1121,28 +1270,30 @@ export class DataChunks {
           // so that we can show all values, not just the ones that do not match
           skipped.push(`${facetName}!`);
         }
-        const groupedByFacetIn = groupBundlesOptimized(
-          // we filter the bundles by all active filters,
-          // except for the current facet (we want to see)
-          // all values here.
-          this.filterBundles(
-            this.bundles,
-            this.filters,
-            skipped,
-          ),
-          facetValueFn,
-        );
+        // we filter the bundles by all active filters, except for the current
+        // facet (we want to see all values here).
+        const mask = this.filterMask(this.filters, skipped)
+          || (this.memo.allMask || (this.memo.allMask = new Uint8Array(bundles.length).fill(1)));
+        const col = this.column(facetValueFn);
+        const { counts, wsum, first } = this.kernels.group(col, mask);
+        const groups = col.orderGroups(counts, wsum, first);
+
+        let facetArray;
+        const materialize = () => {
+          const lists = col.materialize(bundles, mask, groups);
+          facetArray.forEach((facet, i) => {
+            // eslint-disable-next-line no-param-reassign
+            facet.entries = lists[groups[i].gid];
+          });
+        };
+        facetArray = groups.map(({ key, count, weight }) => {
+          const facet = new Facet(this, key, facetName, materialize);
+          facet.count = count;
+          facet.weight = weight;
+          return facet;
+        });
 
         // eslint-disable-next-line no-param-reassign
-        const facetArray = Object.entries(groupedByFacetIn)
-          .reduce((accInner, [facetValue, bundles]) => {
-            accInner.push(bundles
-              .reduce(f, new Facet(this, facetValue, facetName)));
-            return accInner;
-          }, [])
-          // sort the entries by weight, descending (once after reduce completes)
-          .sort((left, right) => right.weight - left.weight);
-
         accOuter[facetName] = facetArray;
         return accOuter;
       }, {});

@@ -6,6 +6,7 @@
     "test-ci": "npm run test",
     "lint": "eslint .",
     "bench": "node bench/cluster.bench.mjs",
+    "bench:kernels": "node bench/kernels.bench.mjs",
     "trace:analyze": "node tools/trace-analyzer.mjs",
     "docs": "npx jsdoc2md --files '*.js'  > API.md",
     "semantic-release": "semantic-release",

@@ -110,6 +110,16 @@ data.filter = {
 // all subsequent calls to data will use this filter
 ```
 
+### Performance
+
+Facet functions are pure: their result depends only on the bundle. RUM Distiller evaluates each
+facet function exactly once per bundle (after `load`/`addData`/`addFacet`) and stores the results
+in a dictionary-encoded, columnar layout (typed arrays). Changing the filter does not re-run any
+facet function; filtering and counting facet values are integer kernels over these columns.
+
+If you mutate bundles in place after loading them, call `resetData()` so that facet values are
+re-computed.
+
 ### Totals
 
 Remember the metrics that we defined before? The `totals` view will calculate

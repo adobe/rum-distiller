@@ -1487,6 +1487,33 @@ describe('DataChunks facet value caching', () => {
   });
 });
 
+describe('DataChunks facet value memoization', () => {
+  it('evaluates each facet function once per bundle across facets and filter changes', () => {
+    const d = new DataChunks();
+    d.load(chunks);
+    const n = d.bundles.length;
+    let calls = 0;
+    d.addFacet('userAgent', (bundle) => {
+      calls += 1;
+      return bundle.userAgent.split(':')[0];
+    }, 'some', 'none');
+
+    const before = d.facets.userAgent.map(({ value, count }) => [value, count]);
+    assert.equal(calls, n);
+
+    d.filter = { userAgent: ['desktop'] };
+    assert.ok(d.filtered.every((b) => b.userAgent.startsWith('desktop')));
+    const after = d.facets.userAgent.map(({ value, count }) => [value, count]);
+    assert.equal(calls, n);
+    // 'some' facets skip their own filter, so the facet values are unchanged
+    assert.deepEqual(after, before);
+
+    d.filter = { 'userAgent!': ['desktop'] };
+    assert.ok(d.filtered.every((b) => !b.userAgent.startsWith('desktop')));
+    assert.equal(calls, n);
+  });
+});
+
 describe('DataChunks.addHistogramFacet()', () => {
   it('should create a histogram facet based on a base facet', () => {
     const d = new DataChunks();
