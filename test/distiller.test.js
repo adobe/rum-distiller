@@ -2496,6 +2496,26 @@ describe('Aggregate parent, share, and percentage', () => {
     assert.equal(totals.toptime.percentile(99), 1000); // 99th percentile
   });
 
+  it('should re-sort when values change after a percentile was read', () => {
+    const d = new DataChunks();
+    d.load([{ date: '2024-05-06', rumBundles: [] }]);
+    d.addSeries('x', () => undefined);
+    const { x } = d.totals;
+    x.values.push(30, 10, 20);
+    assert.equal(x.percentile(0), 10);
+    assert.equal(x.median, 20);
+
+    // values added after sorting
+    x.values.push(5, 1);
+    assert.equal(x.percentile(0), 1);
+    assert.equal(x.median, 10);
+
+    // values replaced by a new array of the same length
+    x.values = [500, 100, 400, 200, 300];
+    assert.equal(x.percentile(0), 100);
+    assert.equal(x.median, 300);
+  });
+
   it('should calculate median correctly', () => {
     const testChunks = [
       {

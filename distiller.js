@@ -166,6 +166,10 @@ class Aggregate {
     this.weight = 0;
     this.values = [];
     this.parentProvider = parentProvider;
+    // `values` array and length at the time of the last sort, so that
+    // percentile/median only re-sort when values have been added or replaced
+    this.sortedValues = null;
+    this.sortedLength = -1;
   }
 
   get parent() {
@@ -218,9 +222,14 @@ class Aggregate {
   }
 
   percentile(p) {
-    const sorted = this.values.sort((left, right) => left - right);
-    const index = Math.floor((p / 100) * sorted.length);
-    return sorted[index];
+    if (this.sortedValues !== this.values || this.sortedLength !== this.values.length) {
+      // Sort in place; all other metrics are order-insensitive
+      this.values.sort((left, right) => left - right);
+      this.sortedValues = this.values;
+      this.sortedLength = this.values.length;
+    }
+    const index = Math.floor((p / 100) * this.values.length);
+    return this.values[index];
   }
 }
 
