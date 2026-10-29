@@ -9,7 +9,9 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
-import { reclassifyConsent, reclassifyAcquisition, scoreCWV } from './utils.js';
+import {
+  reclassifyConsent, reclassifyAcquisition, classifyVisitAcquisition, scoreCWV,
+} from './utils.js';
 import { classifyReferrer } from './referrer.js';
 /**
   * @import {Bundle} from './distiller.js'
@@ -137,23 +139,21 @@ export const facets = {
    * Extracts the acquisition source from the bundle. As acquisition sources
    * can be strings like `paid:video:youtube`, each of `paid`, `paid:video`,
    * and `paid:video:youtube` are returned as separate values.
+   * Paid tags win over AI assistants, which are recognized by tag or referrer,
+   * see `classifyVisitAcquisition`.
    * @param {Bundle} bundle the bundle of sampled rum events
    * @returns {string[]} a list of acquisition sources
    */
-  acquisitionSource: (bundle) => Array.from(
-    bundle.events
-      .map(reclassifyAcquisition)
-      .filter((evt) => evt.checkpoint === 'acquisition')
-      .filter(({ source }) => source) // filter out empty sources
-      .map(({ source }) => source.split(':'))
-      .map((source) => source
-        .reduce((acc, _, i) => {
-          acc.push(source.slice(0, i + 1).join(':'));
-          return acc;
-        }, [])
-        .filter((s) => s))
-      .pop() || [],
-  ),
+  acquisitionSource: (bundle) => {
+    const acquisition = classifyVisitAcquisition(bundle.events);
+    if (!acquisition) {
+      return [];
+    }
+    const source = acquisition.split(':');
+    return source
+      .map((_, i) => source.slice(0, i + 1).join(':'))
+      .filter((s) => s);
+  },
   /**
    * Classifies the referrer page of the enter event.
    * @param {Bundle} bundle the bundle of sampled rum events

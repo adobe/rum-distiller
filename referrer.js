@@ -341,35 +341,42 @@ const referrers = [
     match: /https?:\/\/([a-z]{2,3}\.)?(m\.)?wikipedia\.org/,
   },
   // AI
+  // anchored at both ends of the hostname, so `chatgpt.com.example.net` is not ChatGPT
   {
     type: 'ai',
     vendor: 'openai',
-    match: /https?:\/\/(www\.)?chatgpt\.com/,
+    match: /^https?:\/\/(www\.)?chatgpt\.com(?=[/:?#]|$)/,
   },
   {
     type: 'ai',
     vendor: 'openai',
-    match: /https?:\/\/chat\.openai\.com/,
+    match: /^https?:\/\/chat\.openai\.com(?=[/:?#]|$)/,
+  },
+  {
+    // the ChatGPT Android app
+    type: 'ai',
+    vendor: 'openai',
+    match: /^android-app:\/\/com\.openai\.chatgpt(?=[/?#]|$)/,
   },
   {
     type: 'ai',
     vendor: 'perplexity',
-    match: /https?:\/\/(www\.)?perplexity\.ai/,
+    match: /^https?:\/\/(www\.)?perplexity\.ai(?=[/:?#]|$)/,
   },
   {
     type: 'ai',
     vendor: 'microsoft',
-    match: /https?:\/\/copilot\.microsoft\.com/,
+    match: /^https?:\/\/(copilot\.microsoft\.com|copilot\.com|copilot\.cloud\.microsoft|([a-z0-9-]+\.)?m365copilotapp\.svc\.cloud\.microsoft)(?=[/:?#]|$)/,
   },
   {
     type: 'ai',
     vendor: 'google',
-    match: /https?:\/\/gemini\.google\.com/,
+    match: /^https?:\/\/gemini\.google\.com(?=[/:?#]|$)/,
   },
   {
     type: 'ai',
     vendor: 'anthropic',
-    match: /https?:\/\/(www\.)?claude\.ai/,
+    match: /^https?:\/\/(www\.)?claude\.ai(?=[/:?#]|$)/,
   },
   // Email
   {

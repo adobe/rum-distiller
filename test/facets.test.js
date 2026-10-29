@@ -227,6 +227,82 @@ describe('facets:acquisitionSource', () => {
     assert.deepEqual(facets.acquisitionSource({ events: [{ checkpoint: 'acquisition', source: 'paid:video:youtube' }] }), ['paid', 'paid:video', 'paid:video:youtube']);
   });
 
+  const acquisition = (events) => facets.acquisitionSource({ events }).pop();
+  const chatgptAdClick = [
+    { checkpoint: 'enter', source: 'https://chatgpt.com/' },
+    { checkpoint: 'paid', source: 'openai', target: 'oppref' },
+    { checkpoint: 'utm', source: 'utm_source', target: 'chatgpt.com' },
+  ];
+
+  it('acquisitionSource:paid wins over AI', () => {
+    assert.equal(acquisition(chatgptAdClick), 'paid:ai:chatgpt');
+  });
+
+  it('acquisitionSource:paid wins regardless of event order', () => {
+    assert.equal(acquisition([...chatgptAdClick].reverse()), 'paid:ai:chatgpt');
+  });
+
+  it('acquisitionSource:AI tag with a search referrer is organic search', () => {
+    assert.equal(acquisition([
+      { checkpoint: 'enter', source: 'https://www.google.com/' },
+      { checkpoint: 'utm', source: 'utm_source', target: 'chatgpt.com' },
+    ]), 'earned:search:google');
+  });
+
+  it('acquisitionSource:AI referrers without tags', () => {
+    [
+      ['android-app://com.openai.chatgpt/', 'earned:ai:chatgpt'],
+      ['https://chat.openai.com/c/123', 'earned:ai:chatgpt'],
+      ['https://copilot.com/', 'earned:ai:copilot'],
+      ['https://copilot.microsoft.com/', 'earned:ai:copilot'],
+      ['https://copilot.cloud.microsoft/', 'earned:ai:copilot'],
+      ['https://m365copilotapp.svc.cloud.microsoft/', 'earned:ai:copilot'],
+      ['https://cr.m365copilotapp.svc.cloud.microsoft/', 'earned:ai:copilot'],
+      ['https://gemini.google.com/', 'earned:ai:gemini'],
+      ['https://www.perplexity.ai/', 'earned:ai:perplexity'],
+      ['https://claude.ai/', 'earned:ai:claude'],
+    ].forEach(([source, expected]) => {
+      assert.equal(acquisition([{ checkpoint: 'enter', source }]), expected, source);
+    });
+  });
+
+  it('acquisitionSource:AI tags without referrer', () => {
+    assert.equal(acquisition([
+      { checkpoint: 'enter', source: '(direct)' },
+      { checkpoint: 'utm', source: 'utm_source', target: 'copilot.com?form=MG0AUO' },
+    ]), 'earned:ai:copilot');
+    assert.equal(acquisition([
+      { checkpoint: 'enter', source: '(direct)' },
+      { checkpoint: 'utm', source: 'utm_source', target: 'geminiforbusiness' },
+    ]), 'earned:ai:gemini');
+  });
+
+  it('acquisitionSource:AI referrer and AI tag count once', () => {
+    assert.deepEqual(facets.acquisitionSource({
+      events: [
+        { checkpoint: 'enter', source: 'https://chatgpt.com/' },
+        { checkpoint: 'utm', source: 'utm_source', target: 'chatgpt.com' },
+      ],
+    }), ['earned', 'earned:ai', 'earned:ai:chatgpt']);
+  });
+
+  it('acquisitionSource:AI referrer wins over other tags', () => {
+    assert.equal(acquisition([
+      { checkpoint: 'enter', source: 'https://chatgpt.com/' },
+      { checkpoint: 'utm', source: 'utm_medium', target: 'newsletter' },
+    ]), 'earned:ai:chatgpt');
+  });
+
+  it('acquisitionSource:other referrers are not acquisition', () => {
+    assert.deepEqual(facets.acquisitionSource({
+      events: [{ checkpoint: 'enter', source: 'https://www.google.com/' }],
+    }), []);
+    assert.equal(acquisition([
+      { checkpoint: 'enter', source: 'https://www.google.com/' },
+      { checkpoint: 'utm', source: 'utm_medium', target: 'newsletter' },
+    ]), 'owned:email');
+  });
+
   it('acquisitionSource:DataChunks', () => {
     const d = new DataChunks();
     d.load(testChunks);

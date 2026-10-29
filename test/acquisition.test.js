@@ -113,6 +113,11 @@ describe('classifyAcquisition', () => {
     { input: 'paid social', expected: 'paid:social', only: true },
     { input: 'chatgpt.com', expected: 'earned:ai:chatgpt' },
     { input: 'perplexity', expected: 'earned:ai:perplexity' },
+    { input: 'copilot.com?form=MG0AUO', expected: 'earned:ai:copilot' },
+    { input: 'copilot.microsoft.com', expected: 'earned:ai:copilot' },
+    { input: 'geminiforbusiness', expected: 'earned:ai:gemini' },
+    { input: 'gemini.google.com', expected: 'earned:ai:gemini' },
+    { input: 'claude.ai', expected: 'earned:ai:claude' },
   ];
 
   testCases
@@ -146,6 +151,7 @@ describe('classifyAcquisition (Android in-app referrers)', () => {
     { input: 'android-app://com.instagram.android/', expected: ':social:instagram' },
     { input: 'android-app://com.twitter.android/', expected: ':social:x' },
     { input: 'android-app://com.google.android.youtube/', expected: ':video:youtube' },
+    { input: 'android-app://com.openai.chatgpt/', expected: 'earned:ai:chatgpt' },
     // an app we don't know is left unclassified instead of guessed
     { input: 'android-app://com.example.unknownapp/', expected: '' },
     { input: 'android-app://com.google.android.apps.docs/', expected: '' },
@@ -206,6 +212,21 @@ describe('classifyAcquisition (short vendor aliases do not over-match)', () => {
   aliases.forEach(({ input, expected }) => {
     it(`should still classify "${input}" as "${expected}"`, () => {
       assert.strictEqual(classifyAcquisition(input), expected);
+    });
+  });
+});
+
+describe('classifyAcquisition (paid AI assistants)', () => {
+  it('classifies a ChatGPT ad click as its own paid AI line', () => {
+    assert.strictEqual(classifyAcquisition('openai', true), 'paid:ai:chatgpt');
+  });
+});
+
+describe('classifyAcquisition (AI assistant names are not substrings)', () => {
+  // seen as utm_source or referrer hosts in RUM data
+  ['capgemini', 'eventcopilot.ai', 'm365copilot', 'claudette'].forEach((input) => {
+    it(`should not classify "${input}" as AI`, () => {
+      assert.ok(!classifyAcquisition(input).includes(':ai'));
     });
   });
 });

@@ -29,6 +29,18 @@ function standaloneAlias(pattern) {
 const hostnameLikeRegex = /^(?:[a-z][a-z0-9+.-]*:\/\/)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:[:/?#]|$)/i;
 
 const vendorClassifications = [
+  /*
+   * AI assistants come first: their hostnames contain other vendors
+   * (`gemini.google.com`, `copilot.microsoft.com`), and `openai` is the
+   * paid network of ChatGPT ads (`oppref`, `olref`). `chatgpt` is tagged in
+   * many shapes (`chatgptads`, `chatgpt_conversion`), the other names are
+   * products of their own (`capgemini`, `eventcopilot.ai`), so they must stand alone
+   */
+  { regex: /chatgpt|openai/i, result: 'chatgpt' },
+  { regex: /perplexity/i, result: 'perplexity' },
+  { alias: standaloneAlias('copilot'), result: 'copilot' },
+  { alias: standaloneAlias('gemini(?:forbusiness)?'), result: 'gemini' },
+  { alias: standaloneAlias('claude|anthropic'), result: 'claude' },
   { regex: /google|googleads|google-ads|google_search|google_deman|adwords|dv360|gdn|doubleclick|dbm|gmb/i, result: 'google' },
   { regex: /instagram/i, alias: standaloneAlias('ig'), result: 'instagram' },
   { regex: /facebook/i, alias: standaloneAlias('fb|meta'), result: 'facebook' },
@@ -56,8 +68,6 @@ const vendorClassifications = [
   { regex: /baidu/i, result: 'baidu' },
   { regex: /amazon|ctv/i, result: 'amazon' },
   { regex: /direct/i, result: 'direct' },
-  { regex: /perplexity/i, result: 'perplexity' },
-  { regex: /chatgpt/i, result: 'chatgpt' },
 ];
 
 /* is the vendor paid or owned */
@@ -70,6 +80,9 @@ const vendorTypeLookup = {
   // AI traffic is earned, not owned
   chatgpt: 'earned',
   perplexity: 'earned',
+  copilot: 'earned',
+  gemini: 'earned',
+  claude: 'earned',
 };
 
 const categoryClassifications = [
@@ -125,6 +138,9 @@ const vendorCategoryLookup = {
   baidu: 'search',
   chatgpt: 'ai',
   perplexity: 'ai',
+  copilot: 'ai',
+  gemini: 'ai',
+  claude: 'ai',
   direct: 'direct',
 };
 
@@ -174,6 +190,7 @@ const androidAppSources = {
   'com.reddit.frontpage': 'reddit',
   'com.twitter.android': 'twitter',
   'jp.naver.line.android': 'line',
+  'com.openai.chatgpt': 'chatgpt',
 };
 
 function isPackageId(authority) {

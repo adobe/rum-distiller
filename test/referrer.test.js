@@ -67,6 +67,14 @@ describe('classifyReferrer', () => {
     { input: 'https://chatgpt.com/', expected: { type: 'ai', vendor: 'openai' } },
     { input: 'https://copilot.microsoft.com/', expected: { type: 'ai', vendor: 'microsoft' } },
     { input: 'https://claude.ai/', expected: { type: 'ai', vendor: 'anthropic' } },
+    { input: 'https://chat.openai.com/', expected: { type: 'ai', vendor: 'openai' } },
+    { input: 'android-app://com.openai.chatgpt/', expected: { type: 'ai', vendor: 'openai' } },
+    { input: 'https://copilot.com/', expected: { type: 'ai', vendor: 'microsoft' } },
+    { input: 'https://copilot.cloud.microsoft/', expected: { type: 'ai', vendor: 'microsoft' } },
+    { input: 'https://m365copilotapp.svc.cloud.microsoft/', expected: { type: 'ai', vendor: 'microsoft' } },
+    { input: 'https://cr.m365copilotapp.svc.cloud.microsoft/', expected: { type: 'ai', vendor: 'microsoft' } },
+    { input: 'https://gemini.google.com/app', expected: { type: 'ai', vendor: 'google' } },
+    { input: 'https://www.perplexity.ai/', expected: { type: 'ai', vendor: 'perplexity' } },
 
     // Developer
     { input: 'http://localhost:3000/', expected: { type: 'developer', vendor: 'localhost' } },
@@ -104,5 +112,17 @@ describe('classifyReferrer', () => {
 
   it('should return undefined for unclassified referrers', () => {
     assert.equal(classifyReferrer('https://unknown-domain.com'), undefined);
+  });
+
+  it('should not classify lookalike hosts as AI assistants', () => {
+    assert.equal(classifyReferrer('https://chatgpt.com.example.net/'), undefined);
+    assert.equal(classifyReferrer('https://copilot.community.example/'), undefined);
+    assert.equal(classifyReferrer('https://example.com/?r=https://claude.ai/'), undefined);
+    assert.equal(classifyReferrer('android-app://com.openai.chatgpt.fake/'), undefined);
+    // seen in RUM data, none of them is an AI assistant run by the vendor
+    assert.equal(classifyReferrer('https://chatopenai.co.kr/'), undefined);
+    assert.equal(classifyReferrer('https://opchatgpt.com/'), undefined);
+    assert.equal(classifyReferrer('https://copilot.cloud.microsoft.mcas.ms/'), undefined);
+    assert.equal(classifyReferrer('https://copilot.cardconnect.com/'), undefined);
   });
 });
