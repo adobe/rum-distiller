@@ -1,3 +1,10 @@
+# [1.24.0](https://github.com/adobe/rum-distiller/compare/v1.23.3...v1.24.0) (2026-10-30)
+
+
+### Features
+
+* **acquisition:** classify AI assistant traffic by paid precedence and referrer ([087ae43](https://github.com/adobe/rum-distiller/commit/087ae4348dcea7b69b61cfbc4db5d76a0fccd255)), closes [#144](https://github.com/adobe/rum-distiller/issues/144)
+
 ## [1.23.3](https://github.com/adobe/rum-distiller/compare/v1.23.2...v1.23.3) (2026-10-08)
 
 
