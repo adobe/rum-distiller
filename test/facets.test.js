@@ -13,6 +13,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { facets, facetFns } from '../facets.js';
+import { classifyUserAgent } from '../utils.js';
 import { DataChunks } from '../distiller.js';
 import { pageViews } from '../series.js';
 
@@ -43,6 +44,93 @@ describe('facets:userAgent', () => {
 
     // sanity check on values
     assert.ok(estUA.sHat >= estUA.sObs);
+  });
+});
+
+describe('facets:userAgent re-classification from clicks', () => {
+  const HUMAN = 'desktop:windows';
+  const click = (userAgent) => (userAgent
+    ? { checkpoint: 'click', source: '.cta', userAgent }
+    : { checkpoint: 'click', source: '.cta' });
+  const pv = (events, userAgent = HUMAN) => ({
+    userAgent,
+    events: [{ checkpoint: 'top' }, ...events],
+  });
+
+  it('leaves a page view without marked clicks unchanged', () => {
+    assert.equal(classifyUserAgent(pv([])), HUMAN);
+    assert.equal(classifyUserAgent(pv([click(), click()])), HUMAN);
+    assert.equal(classifyUserAgent({ userAgent: HUMAN }), HUMAN);
+  });
+
+  it('classifies a page view whose clicks are all synthetic as bot:untrusted', () => {
+    const bundle = pv([click('bot:untrusted'), click('bot:untrusted')]);
+    assert.equal(classifyUserAgent(bundle), 'bot:untrusted');
+    assert.deepEqual(facets.userAgent(bundle), ['bot', 'bot:untrusted']);
+  });
+
+  it('classifies a page view whose clicks are all hidden as bot:hidden', () => {
+    const bundle = pv([click('bot:hidden')]);
+    assert.deepEqual(facets.userAgent(bundle), ['bot', 'bot:hidden']);
+  });
+
+  it('prefers bot:hidden when every click is marked and some are hidden', () => {
+    const bundle = pv([click('bot:untrusted'), click('bot:hidden')]);
+    assert.equal(classifyUserAgent(bundle), 'bot:hidden');
+  });
+
+  it('keeps a page view human when synthetic clicks sit next to real ones', () => {
+    const bundle = pv([click(), click('bot:untrusted'), click('bot:hidden')]);
+    assert.deepEqual(facets.userAgent(bundle), ['desktop', 'desktop:windows']);
+  });
+
+  it('recovers the human user agent when a marked click opened the bundle', () => {
+    // the bundler takes the bundle's user agent from its first event, so the
+    // unmarked clicks are the ones that carry their own user agent
+    const bundle = pv([click(), click(HUMAN)], 'bot:untrusted');
+    assert.equal(classifyUserAgent(bundle), HUMAN);
+  });
+
+  it('keeps a marked bundle a bot when no event carries its own user agent', () => {
+    // bundles stored before the bundler kept per-event user agents
+    assert.equal(classifyUserAgent(pv([click(), click()], 'bot:untrusted')), 'bot:untrusted');
+    assert.equal(classifyUserAgent(pv([click()], 'bot:hidden')), 'bot:hidden');
+  });
+
+  it('never overrides another bot classification', () => {
+    assert.equal(classifyUserAgent(pv([click(HUMAN)], 'bot:seo')), 'bot:seo');
+    assert.equal(classifyUserAgent(pv([click('bot:untrusted')], 'bot:webdriver')), 'bot:webdriver');
+    assert.equal(classifyUserAgent(pv([click('bot:hidden')], 'bot')), 'bot');
+  });
+
+  it('only counts clicks', () => {
+    const bundle = pv([{ checkpoint: 'viewmedia', userAgent: 'bot:hidden' }, click()]);
+    assert.equal(classifyUserAgent(bundle), HUMAN);
+  });
+
+  it('drops re-classified page views from a desktop filter', () => {
+    const base = {
+      host: 'example.com',
+      time: '2024-05-06T00:00:04.444Z',
+      timeSlot: '2024-05-06T00:00:00.000Z',
+      url: 'https://example.com/',
+      weight: 100,
+    };
+    const d = new DataChunks();
+    d.load([{
+      date: '2024-05-06',
+      rumBundles: [
+        { ...base, id: 'human', ...pv([click()]) },
+        { ...base, id: 'mixed', ...pv([click(), click('bot:untrusted')]) },
+        { ...base, id: 'synthetic', ...pv([click('bot:untrusted')]) },
+        { ...base, id: 'hidden', ...pv([click('bot:hidden')]) },
+      ],
+    }]);
+    d.addFacet('userAgent', facets.userAgent);
+    d.filter = { userAgent: ['desktop'] };
+    assert.deepEqual(d.filtered.map((b) => b.id).sort(), ['human', 'mixed']);
+    d.filter = { userAgent: ['bot'] };
+    assert.deepEqual(d.filtered.map((b) => b.id).sort(), ['hidden', 'synthetic']);
   });
 });
 

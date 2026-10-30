@@ -9,7 +9,9 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
-import { reclassifyConsent, reclassifyAcquisition, scoreCWV } from './utils.js';
+import {
+  reclassifyConsent, reclassifyAcquisition, scoreCWV, classifyUserAgent,
+} from './utils.js';
 import { classifyReferrer } from './referrer.js';
 /**
   * @import {Bundle} from './distiller.js'
@@ -22,7 +24,7 @@ export const facets = {
    * @returns {string[]} a list of device types and operating systems
    */
   userAgent: (bundle) => {
-    const parts = bundle.userAgent.split(':');
+    const parts = classifyUserAgent(bundle).split(':');
     return parts.reduce((acc, _, i) => {
       acc.push(parts.slice(0, i + 1).join(':'));
       return acc;

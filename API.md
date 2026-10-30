@@ -129,6 +129,9 @@ the p-value for the difference between the two data sets.</p>
 <dd><p>Conversion rates are computed as the ratio of conversions to visits. The conversion rate is
 capped at 100%.</p>
 </dd>
+<dt><a href="#classifyUserAgent">classifyUserAgent(bundle)</a> ⇒ <code>string</code></dt>
+<dd><p>Classifies a page view's user agent from the clicks inside it.</p>
+</dd>
 <dt><a href="#addCalculatedProps">addCalculatedProps(bundle)</a> ⇒ <code><a href="#Bundle">Bundle</a></code></dt>
 <dd><p>Calculates properties on the bundle, so that bundle-level filtering can be performed</p>
 </dd>
@@ -916,6 +919,33 @@ capped at 100%.
 | --- | --- |
 | conversions | the number of conversions |
 | visits | the number of visits |
+
+<a name="classifyUserAgent"></a>
+
+## classifyUserAgent(bundle) ⇒ <code>string</code>
+Classifies a page view's user agent from the clicks inside it.
+
+The collector labels a click `bot:untrusted` when it was synthetic (dispatched by
+script, `isTrusted === false`) and `bot:hidden` when it fired while the tab was
+hidden. The bundler keeps such a click's user agent on the event only when it
+differs from the bundle's, so an event's effective user agent is
+`event.userAgent ?? bundle.userAgent`.
+
+- no marked clicks: the bundle's own user agent, unchanged
+- every click synthetic: `bot:untrusted`
+- every click marked, any of them hidden: `bot:hidden` (the sneakier signal wins)
+- marked clicks next to unmarked ones: a human, most likely on a page whose own
+  script calls `el.click()`. Returns the bundle's user agent, or the first
+  unmarked click's when the bundle itself was opened by a marked click.
+
+Any other bundle-level bot classification (crawlers, `bot:webdriver`) is final.
+
+**Kind**: global function  
+**Returns**: <code>string</code> - the user agent class of the page view  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| bundle | <code>Object</code> | a bundle of sampled rum events, with `userAgent` and `events` |
 
 <a name="addCalculatedProps"></a>
 
