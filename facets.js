@@ -20,6 +20,15 @@ export const facets = {
   /**
    * Extracts each of device type and operating system from
    * the simplified user agent string.
+   *
+   * Every prefix of the class is emitted. A trailing `webdriver` is a marker, not a
+   * subtype, so `bot:monitoring:webdriver` also counts as `bot:webdriver`, and the
+   * `bot:webdriver` value keeps every webdriver page view, whatever subtype it has.
+   *
+   * Since 2026-10-24 the collector reports webdriver browsers as `bot:webdriver`
+   * instead of their bot subtype, so subtypes such as `bot:monitoring` drop on that
+   * date. That is a reclassification, not a change in traffic, and the subtype cannot
+   * be recovered for those page views. The `bot` total is not affected.
    * @param {Bundle} bundle the bundle of sampled rum events
    * @returns {string[]} a list of device types and operating systems
    */
@@ -27,6 +36,9 @@ export const facets = {
     const parts = bundle.userAgent.split(':');
     return parts.reduce((acc, _, i) => {
       acc.push(parts.slice(0, i + 1).join(':'));
+      if (i > 1 && i === parts.length - 1 && parts[0] === 'bot' && parts[i] === 'webdriver') {
+        acc.push('bot:webdriver');
+      }
       return acc;
     }, []);
   },
