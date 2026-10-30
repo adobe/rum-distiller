@@ -11,6 +11,7 @@
  */
 import { classifyAcquisition } from './acquisition.js';
 import classifyConsent from './consent.js';
+import { classifyReferrer } from './referrer.js';
 
 /* helpers */
 
@@ -203,6 +204,58 @@ export function reclassifyAcquisition({ source, target, checkpoint }) {
   }
   */
   return { source, target, checkpoint };
+}
+
+const isAI = (acquisition) => acquisition.split(':')[1] === 'ai';
+
+/* the vendors of AI referrers (see `referrer.js`), named like the AI acquisition vendors */
+const aiReferrerVendors = {
+  openai: 'chatgpt',
+  perplexity: 'perplexity',
+  microsoft: 'copilot',
+  google: 'gemini',
+  anthropic: 'claude',
+};
+
+/**
+ * Classifies the acquisition of a visit, combining tags (`paid`, `utm`, `email`)
+ * with the referrer of the `enter` event. The first match wins:
+ * 1. paid, e.g. a ChatGPT ad click (`paid:ai:chatgpt`)
+ * 2. AI assistants, by referrer or by tag, counted once (`earned:ai:copilot`). An AI
+ *    tag on a visit referred by a search engine came from a search result that links
+ *    an AI-tagged URL, so it is organic search (`earned:search:google`)
+ * 3. any other tag, the last one wins
+ * @param {object[]} events the events of a bundle
+ * @returns {string|undefined} the acquisition source, e.g. `paid:video:youtube`
+ */
+export function classifyVisitAcquisition(events) {
+  const paid = [];
+  const tagged = [];
+  events.forEach((evt) => {
+    const { checkpoint, source } = reclassifyAcquisition(evt);
+    if (checkpoint !== 'acquisition' || !source) {
+      return;
+    }
+    if (evt.checkpoint === 'paid') {
+      paid.push(source);
+    } else {
+      tagged.push(source);
+    }
+  });
+  if (paid.length) {
+    return paid.pop();
+  }
+
+  const referrer = events.find((evt) => evt.checkpoint === 'enter')?.source;
+  const referrerClass = classifyReferrer(referrer);
+  const aiTag = tagged.findLast(isAI);
+  if (aiTag && referrerClass?.type === 'search') {
+    return `earned:search:${referrerClass.vendor}`;
+  }
+  if (referrerClass?.type === 'ai') {
+    return `earned:ai:${aiReferrerVendors[referrerClass.vendor]}`;
+  }
+  return aiTag || tagged.pop();
 }
 
 /**
