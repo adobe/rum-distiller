@@ -40,6 +40,17 @@ describe('facets:userAgent', () => {
     );
   });
 
+  it('userAgent:webdriver only rolls up as a trailing bot marker', () => {
+    assert.deepEqual(
+      facets.userAgent({ userAgent: 'desktop:windows:webdriver' }),
+      ['desktop', 'desktop:windows', 'desktop:windows:webdriver'],
+    );
+    assert.deepEqual(
+      facets.userAgent({ userAgent: 'bot:monitoring:webdriver:x' }),
+      ['bot', 'bot:monitoring', 'bot:monitoring:webdriver', 'bot:monitoring:webdriver:x'],
+    );
+  });
+
   it('userAgent:webdriver stays final next to clicks', () => {
     const click = { checkpoint: 'click', source: '.cta', userAgent: 'desktop:windows' };
     const bundle = { userAgent: 'bot:monitoring:webdriver', events: [click] };

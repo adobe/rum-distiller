@@ -34,7 +34,7 @@ export const facets = {
     const parts = bundle.userAgent.split(':');
     return parts.reduce((acc, _, i) => {
       acc.push(parts.slice(0, i + 1).join(':'));
-      if (i > 1 && parts[i] === 'webdriver') {
+      if (i > 1 && i === parts.length - 1 && parts[0] === 'bot' && parts[i] === 'webdriver') {
         acc.push('bot:webdriver');
       }
       return acc;
