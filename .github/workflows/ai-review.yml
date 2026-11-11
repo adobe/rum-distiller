@@ -9,8 +9,7 @@ concurrency:
 
 jobs:
   ai-review:
-    # TODO: pin to a release once adobe/helix-shared's ai-review workflow is merged
-    uses: adobe/helix-shared/.github/workflows/ai-review.yml@ai-review-workflow
+    uses: adobe/helix-shared-workflows/.github/workflows/ai-review.yml@v1
     secrets:
       AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
     permissions:
