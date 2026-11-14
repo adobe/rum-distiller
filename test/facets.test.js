@@ -25,6 +25,67 @@ describe('facets:userAgent', () => {
     assert.deepEqual(facets.userAgent({ userAgent: 'desktop:windows' }), ['desktop', 'desktop:windows']);
   });
 
+  it('userAgent:webdriver', () => {
+    assert.deepEqual(facets.userAgent({ userAgent: 'bot:webdriver' }), ['bot', 'bot:webdriver']);
+  });
+
+  it('userAgent:webdriver keeps the bot subtype', () => {
+    assert.deepEqual(
+      facets.userAgent({ userAgent: 'bot:monitoring:webdriver' }),
+      ['bot', 'bot:monitoring', 'bot:monitoring:webdriver', 'bot:webdriver'],
+    );
+    assert.deepEqual(
+      facets.userAgent({ userAgent: 'bot:ai:gptbot:webdriver' }),
+      ['bot', 'bot:ai', 'bot:ai:gptbot', 'bot:ai:gptbot:webdriver', 'bot:webdriver'],
+    );
+  });
+
+  it('userAgent:webdriver only rolls up as a trailing bot marker', () => {
+    assert.deepEqual(
+      facets.userAgent({ userAgent: 'desktop:windows:webdriver' }),
+      ['desktop', 'desktop:windows', 'desktop:windows:webdriver'],
+    );
+    assert.deepEqual(
+      facets.userAgent({ userAgent: 'bot:monitoring:webdriver:x' }),
+      ['bot', 'bot:monitoring', 'bot:monitoring:webdriver', 'bot:monitoring:webdriver:x'],
+    );
+  });
+
+  it('userAgent:webdriver stays final next to clicks', () => {
+    const click = { checkpoint: 'click', source: '.cta', userAgent: 'desktop:windows' };
+    const bundle = { userAgent: 'bot:monitoring:webdriver', events: [click] };
+    assert.ok(facets.userAgent(bundle).includes('bot:webdriver'));
+    assert.ok(!facets.userAgent(bundle).includes('desktop'));
+  });
+
+  it('userAgent:webdriver filters by subtype and by marker', () => {
+    const base = {
+      host: 'example.com',
+      time: '2024-05-06T00:00:04.444Z',
+      timeSlot: '2024-05-06T00:00:00.000Z',
+      url: 'https://example.com/',
+      weight: 100,
+      events: [{ checkpoint: 'top' }],
+    };
+    const d = new DataChunks();
+    d.load([{
+      date: '2024-05-06',
+      rumBundles: [
+        { ...base, id: 'monitor', userAgent: 'bot:monitoring' },
+        { ...base, id: 'monitor-webdriver', userAgent: 'bot:monitoring:webdriver' },
+        { ...base, id: 'webdriver', userAgent: 'bot:webdriver' },
+        { ...base, id: 'human', userAgent: 'desktop:windows' },
+      ],
+    }]);
+    d.addFacet('userAgent', facets.userAgent);
+    d.filter = { userAgent: ['bot:monitoring'] };
+    assert.deepEqual(d.filtered.map((b) => b.id).sort(), ['monitor', 'monitor-webdriver']);
+    d.filter = { userAgent: ['bot:webdriver'] };
+    assert.deepEqual(d.filtered.map((b) => b.id).sort(), ['monitor-webdriver', 'webdriver']);
+    d.filter = { userAgent: ['bot'] };
+    assert.deepEqual(d.filtered.map((b) => b.id).sort(), ['monitor', 'monitor-webdriver', 'webdriver']);
+  });
+
   it('userAgent:DataChunks', () => {
     const d = new DataChunks();
     d.load(testChunks);
